@@ -1,5 +1,5 @@
 /* Service worker: mở được app khi mất mạng. Luôn lấy bản mới nhất khi có mạng, chỉ dùng bản nhớ khi offline. */
-const CACHE='itasset-v1';
+const CACHE='itasset-v2';
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
