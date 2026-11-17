@@ -304,7 +304,7 @@ const idb={db:null,open(){return this.db||(this.db=new Promise((res,rej)=>{const
 /* ===== Cấu hình thiết bị & dữ liệu ===== */
 const DEFAULT_G_CLIENT_ID='160509043267-rq97u0revcveeglq15mo1tappf7aikih.apps.googleusercontent.com'; // Google Client ID (dùng chung với app Tiền Trọ được; đổi nếu bạn tạo ID riêng)
 const DEFAULT_OTP_URL=''; // Dán địa chỉ Apps Script (…/exec) của app này vào đây để khỏi nhập ở màn hình đăng nhập
-const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.4.2';
+const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.4.3';
 const DRIVE_FOLDER='Quản lý thiết bị CNTT',DRIVE_FILE='ITAsset_data.json';
 let CFG={gClientId:'',gFileId:null,gFolderId:null,syncPid:null,syncRev:0,view:'dash',driver:null,lastAt:null};
 try{Object.assign(CFG,JSON.parse(localStorage.getItem('itam.cfg')||'{}'))}catch(e){}
@@ -804,25 +804,25 @@ function handoverHTML(batch){
   const rows=recs.map((r,i)=>{const a=A[i];return `<tr><td class="c">${i+1}</td><td>${esc(r.assetId)}</td><td>${esc(a.type||'')}</td><td>${esc([a.brand,a.model].filter(Boolean).join(' '))}</td><td>${esc(a.serial||'')}</td><td>${esc([a.cpu,a.ram,a.disk,a.screen].filter(Boolean).join(', '))}</td>${hasVal?`<td class="r">${+a.value>0?money(+a.value):''}</td>`:''}<td>${esc(r.cond||'')}</td></tr>`}).join('');
   const li=(arr)=>arr.map((x,i)=>`<p class="cl"><b>${i+1}.</b> ${x}</p>`);
   const recv=[
-   `<b>Quyền sở hữu và tình trạng thiết bị.</b> Thiết bị nêu trên là tài sản của ${co}; Bên nhận chỉ được giao quản lý, sử dụng trong thời gian làm việc tại Công ty. Bên nhận xác nhận đã trực tiếp kiểm tra, nhận đủ số lượng, đúng mã tài sản, số serial và tình trạng như ghi trong biên bản này.`,
-   `<b>Sử dụng đúng mục đích.</b> Chỉ sử dụng thiết bị cho công việc của Công ty. Không cho mượn, cho thuê, cầm cố, thế chấp, mua bán, tặng cho hoặc giao cho người khác sử dụng; không tự ý chuyển thiết bị cho đồng nghiệp — mọi thay đổi người giữ phải được lập biên bản điều chuyển.`,
-   `<b>Không mang thiết bị ra khỏi Công ty</b> khi chưa được phép. Mang máy về nhà phải có Quyết định của ${esc(S.directorTitle||'Giám đốc')}.`,
-   `<b>Không tự ý can thiệp phần cứng.</b> Không tự tháo lắp, nâng cấp, sửa chữa, thay linh kiện, đổi cấu hình hoặc gỡ, làm hỏng tem tài sản; không tự mang đi sửa chữa bên ngoài. Khi thiết bị có sự cố phải báo ngay cho Bộ phận IT.`,
-   `<b>Phần mềm và dữ liệu.</b> Chỉ sử dụng phần mềm do Bộ phận IT cài đặt hoặc được Công ty cho phép; không cài phần mềm không rõ nguồn gốc, không có bản quyền. Giữ bí mật tài khoản, mật khẩu, không chia sẻ cho người khác. Dữ liệu, tài liệu trên thiết bị là tài sản của Công ty; không sao chép, gửi ra ngoài khi chưa được phép. Công ty có quyền kiểm tra thiết bị để phục vụ quản trị và an toàn thông tin.`,
-   `<b>Mất mát, hư hỏng.</b> Phải báo ngay cho Bộ phận IT và quản lý trực tiếp, chậm nhất trong vòng 24 giờ kể từ khi phát hiện, kèm bản tường trình bằng văn bản. Trường hợp mất mát, hư hỏng do lỗi chủ quan, thiếu bảo quản hoặc vi phạm các cam kết tại biên bản này, Bên nhận chịu trách nhiệm bồi thường thiệt hại thực tế (theo giá trị còn lại hoặc giá thị trường của thiết bị) theo Quy chế quản lý tài sản, Nội quy lao động của Công ty và quy định của pháp luật lao động. Hao mòn thông thường do sử dụng đúng cách không phải bồi thường.`,
-   `<b>Kiểm kê.</b> Chấp hành việc kiểm kê định kỳ hoặc đột xuất của Công ty; xuất trình thiết bị, phụ kiện khi được yêu cầu.`,
-   `<b>Hoàn trả.</b> Hoàn trả đầy đủ thiết bị, phụ kiện, nguyên trạng (trừ hao mòn thông thường) khi Công ty yêu cầu thu hồi hoặc điều chuyển, khi không còn nhu cầu sử dụng, khi thay đổi vị trí công việc hoặc khi chấm dứt hợp đồng lao động — chậm nhất vào ngày bàn giao công việc hoặc ngày làm việc cuối cùng. Công ty chỉ xác nhận hoàn tất thủ tục bàn giao khi thiết bị đã được hoàn trả đủ. Trường hợp không hoàn trả hoặc hoàn trả thiếu, Bên nhận phải bồi thường theo khoản 6 và Công ty có quyền áp dụng các biện pháp xử lý theo quy định của pháp luật.`,
-   `<b>Hiệu lực.</b> Biên bản lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản, có hiệu lực kể từ ngày ký. Bên nhận xác nhận đã đọc, hiểu rõ và cam kết thực hiện đầy đủ các nội dung trên.`];
+   `<b>Quyền sở hữu và tình trạng.</b> Thiết bị trên là tài sản của ${co}; Bên nhận chỉ được giao quản lý, sử dụng trong thời gian làm việc tại Công ty, và xác nhận đã kiểm tra, nhận đủ, đúng mã tài sản, số serial, tình trạng như ghi trong biên bản.`,
+   `<b>Sử dụng đúng mục đích.</b> Chỉ dùng cho công việc của Công ty; không cho mượn, cho thuê, cầm cố, thế chấp, mua bán, tặng cho hay giao người khác sử dụng. Muốn đổi người giữ phải lập biên bản điều chuyển.`,
+   `<b>Không mang thiết bị ra khỏi Công ty</b> khi chưa được phép; mang về nhà phải có Quyết định của ${esc(S.directorTitle||'Giám đốc')}.`,
+   `<b>Không tự can thiệp phần cứng:</b> tháo lắp, nâng cấp, sửa chữa, đổi cấu hình, gỡ hoặc làm hỏng tem tài sản, mang đi sửa bên ngoài. Có sự cố phải báo ngay Bộ phận IT.`,
+   `<b>Phần mềm và dữ liệu.</b> Chỉ dùng phần mềm do IT cài hoặc được Công ty cho phép, không cài phần mềm không rõ nguồn gốc, không bản quyền. Giữ bí mật tài khoản, mật khẩu. Dữ liệu trên thiết bị là tài sản của Công ty, không sao chép, gửi ra ngoài khi chưa được phép; Công ty có quyền kiểm tra thiết bị để quản trị và bảo đảm an toàn thông tin.`,
+   `<b>Mất mát, hư hỏng.</b> Báo ngay Bộ phận IT và quản lý trực tiếp, chậm nhất 24 giờ, kèm bản tường trình. Nếu do lỗi chủ quan, thiếu bảo quản hoặc vi phạm cam kết tại biên bản này, Bên nhận bồi thường thiệt hại thực tế (theo giá trị còn lại hoặc giá thị trường) theo Quy chế quản lý tài sản, Nội quy lao động và pháp luật lao động. Hao mòn thông thường không phải bồi thường.`,
+   `<b>Kiểm kê.</b> Chấp hành kiểm kê định kỳ, đột xuất; xuất trình thiết bị, phụ kiện khi được yêu cầu.`,
+   `<b>Hoàn trả.</b> Hoàn trả đủ thiết bị, phụ kiện, nguyên trạng (trừ hao mòn thông thường) khi Công ty yêu cầu thu hồi hoặc điều chuyển, khi hết nhu cầu, đổi vị trí công việc hoặc chấm dứt hợp đồng lao động — chậm nhất vào ngày bàn giao công việc hoặc ngày làm việc cuối cùng. Công ty chỉ xác nhận hoàn tất khi đã trả đủ; nếu không trả hoặc trả thiếu, Bên nhận bồi thường theo khoản 6 và Công ty có quyền xử lý theo pháp luật.`,
+   `<b>Hiệu lực.</b> Lập 02 bản có giá trị như nhau, mỗi bên giữ 01 bản, có hiệu lực từ ngày ký. Bên nhận xác nhận đã đọc, hiểu và cam kết thực hiện đầy đủ.`];
   const ret=[
-   `<b>Hoàn trả và kiểm tra.</b> Bên giao đã hoàn trả đầy đủ thiết bị, phụ kiện nêu trên. Bên nhận đã kiểm tra bên ngoài tại thời điểm nhận và ghi nhận tình trạng ở cột “Tình trạng khi nhận lại”.`,
-   `<b>Kiểm tra kỹ thuật sau khi nhận.</b> Nếu qua kiểm tra kỹ thuật phát hiện thiếu hụt, hư hỏng hoặc thay đổi cấu hình trái phép phát sinh trong thời gian Bên giao quản lý, kết quả được lập thành văn bản và Bên giao chịu trách nhiệm theo Quy chế quản lý tài sản, Nội quy lao động của Công ty và quy định của pháp luật lao động. Hao mòn thông thường không phải bồi thường.`,
-   `<b>Dữ liệu và tài khoản.</b> Bên giao xác nhận đã sao lưu dữ liệu công việc cần bàn giao cho Công ty, đã đăng xuất các tài khoản và gỡ mật khẩu/khóa thiết bị; đồng ý để Bộ phận IT xóa dữ liệu, cài đặt lại hệ thống. Công ty không chịu trách nhiệm đối với dữ liệu cá nhân còn lưu trên thiết bị.`,
-   `<b>Bảo mật.</b> Bên giao cam kết không giữ lại, không sao chép dữ liệu, tài liệu của Công ty dưới bất kỳ hình thức nào và không tiếp tục sử dụng, truy cập thiết bị, hệ thống của Công ty sau thời điểm bàn giao.`,
-   `<b>Hiệu lực.</b> Biên bản lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản, có hiệu lực kể từ ngày ký.`];
-  const giaoNote=thu?'':`<p class="cl"><b>Bên giao</b> xác nhận đã bàn giao đúng thiết bị, tình trạng như ghi trong biên bản, đã hướng dẫn các quy định sử dụng, bảo mật và ghi nhận biên bản vào hồ sơ quản lý tài sản.</p>`;
-  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${bbNo({batch})}</title><style>@page{size:A4;margin:14mm 15mm}body{font:12.5px/1.45 "Times New Roman",serif;color:#000}h1{font-size:17px;text-align:center;margin:12px 0 2px}.c{text-align:center}.r{text-align:right}.sub{text-align:center;margin-bottom:8px}
-   table{width:100%;border-collapse:collapse;margin:8px 0}td,th{border:1px solid #000;padding:4px 6px;vertical-align:top;font-size:11.5px}th{background:#eee}h2{font-size:13px;margin:12px 0 4px}p{margin:3px 0}.cl{text-align:justify}
-   .sig{display:flex;justify-content:space-around;margin-top:18px;text-align:center;page-break-inside:avoid}.sig div{flex:1;padding:0 4px}.sig i{display:block;height:78px}.sig small{font-size:11px}</style></head><body>
+   `<b>Hoàn trả và kiểm tra.</b> Bên giao đã hoàn trả đủ thiết bị, phụ kiện nêu trên; Bên nhận đã kiểm tra bên ngoài và ghi tình trạng ở cột “Tình trạng khi nhận lại”.`,
+   `<b>Kiểm tra kỹ thuật.</b> Nếu sau đó phát hiện thiếu hụt, hư hỏng hoặc đổi cấu hình trái phép trong thời gian Bên giao quản lý, sẽ lập văn bản và Bên giao chịu trách nhiệm theo Quy chế quản lý tài sản, Nội quy lao động và pháp luật lao động. Hao mòn thông thường không phải bồi thường.`,
+   `<b>Dữ liệu và tài khoản.</b> Bên giao đã sao lưu dữ liệu công việc cho Công ty, đăng xuất tài khoản, gỡ mật khẩu/khóa thiết bị; đồng ý để Bộ phận IT xóa dữ liệu, cài lại hệ thống. Công ty không chịu trách nhiệm đối với dữ liệu cá nhân còn lưu trên thiết bị.`,
+   `<b>Bảo mật.</b> Bên giao không giữ lại, không sao chép dữ liệu, tài liệu của Công ty dưới mọi hình thức, và không tiếp tục sử dụng, truy cập thiết bị, hệ thống của Công ty sau khi bàn giao.`,
+   `<b>Hiệu lực.</b> Lập 02 bản có giá trị như nhau, mỗi bên giữ 01 bản, có hiệu lực từ ngày ký.`];
+  const giaoNote=thu?'':`<p class="cl"><b>Bên giao</b> xác nhận đã bàn giao đúng thiết bị, tình trạng như ghi trong biên bản, đã hướng dẫn quy định sử dụng, bảo mật và ghi nhận biên bản vào hồ sơ quản lý tài sản.</p>`;
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${bbNo({batch})}</title><style>@page{size:A4;margin:11mm 14mm}body{font:12px/1.38 "Times New Roman",serif;color:#000}h1{font-size:16px;text-align:center;margin:8px 0 2px}.c{text-align:center}.r{text-align:right}.sub{text-align:center;margin-bottom:8px}
+   table{width:100%;border-collapse:collapse;margin:8px 0}td,th{border:1px solid #000;padding:3px 5px;vertical-align:top;font-size:11px}th{background:#eee}h2{font-size:12.5px;margin:8px 0 3px}p{margin:2px 0}.cl{text-align:justify}
+   .sig{display:flex;justify-content:space-around;margin-top:10px;text-align:center;page-break-inside:avoid}.sig div{flex:1;padding:0 4px}.sig i{display:block;height:62px}.sig small{font-size:11px}</style></head><body>
    <div style="display:flex;justify-content:space-between"><b>${co}</b><span>Số: ${bbNo({batch})}</span></div><div>${esc(S.address||'')}</div>
    <h1>${title}</h1><div class="sub">Ngày ${d.getDate()} tháng ${d.getMonth()+1} năm ${d.getFullYear()}</div>
    <p><i>Căn cứ Nội quy lao động và Quy chế quản lý tài sản của ${co}.</i></p>
@@ -831,7 +831,7 @@ function handoverHTML(batch){
    <table><thead><tr><th>STT</th><th>Mã TS</th><th>Loại</th><th>Hãng / Model</th><th>Serial</th><th>Cấu hình</th>${hasVal?'<th>Nguyên giá (đ)</th>':''}<th>${thu?'Tình trạng khi nhận lại':'Tình trạng khi giao'}</th></tr></thead><tbody>${rows}</tbody></table>
    ${r0.note?`<p><b>Ghi chú:</b> ${esc(r0.note)}</p>`:''}
    <h2>II. ${thu?'XÁC NHẬN VÀ CAM KẾT CỦA CÁC BÊN':'CAM KẾT CỦA BÊN NHẬN'}</h2>${giaoNote}${(()=>{const L=li(thu?ret:recv);return L.slice(0,-1).join('')+'<div style="page-break-inside:avoid">'+L[L.length-1]})()}
-   <div class="sig"><div><b>BÊN GIAO</b><br><small>(Ký, ghi rõ họ tên)</small><i></i></div><div><b>BÊN NHẬN</b><br><small>(Ký, ghi rõ họ tên${thu?'':' và ghi “Đã nhận đủ, cam kết thực hiện”'})</small><i></i></div>${thu?'':'<div><b>QUẢN LÝ TRỰC TIẾP</b><br><small>(Xác nhận của Trưởng bộ phận bên nhận)</small><i></i></div>'}</div></div></body></html>`}
+   <div class="sig"><div><b>BÊN GIAO</b><br><small>(Ký, ghi rõ họ tên)</small><i></i></div><div><b>BÊN NHẬN</b><br><small>(Ký, ghi rõ họ tên${thu?'':' và ghi “Đã nhận đủ, cam kết thực hiện”'})</small><i></i></div></div></div></body></html>`}
 
 async function compressImage(file){
   if(!/^image\//.test(file.type))return file;
