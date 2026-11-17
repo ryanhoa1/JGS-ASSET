@@ -303,7 +303,7 @@ const idb={db:null,open(){return this.db||(this.db=new Promise((res,rej)=>{const
 /* ===== Cấu hình thiết bị & dữ liệu ===== */
 const DEFAULT_G_CLIENT_ID='160509043267-rq97u0revcveeglq15mo1tappf7aikih.apps.googleusercontent.com'; // Google Client ID (dùng chung với app Tiền Trọ được; đổi nếu bạn tạo ID riêng)
 const DEFAULT_OTP_URL=''; // Dán địa chỉ Apps Script (…/exec) của app này vào đây để khỏi nhập ở màn hình đăng nhập
-const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.1';
+const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.2';
 const DRIVE_FOLDER='Quản lý thiết bị CNTT',DRIVE_FILE='ITAsset_data.json';
 let CFG={gClientId:'',gFileId:null,gFolderId:null,syncPid:null,syncRev:0,view:'dash',driver:null,lastAt:null};
 try{Object.assign(CFG,JSON.parse(localStorage.getItem('itam.cfg')||'{}'))}catch(e){}
@@ -618,10 +618,11 @@ LIST.alloc=()=>{const f=fl(),B=batches().filter(b=>{if(f.type&&b.type!==f.type)r
     `${esc(b.person||'—')}${b.dept?`<div class="muted sm">${esc(b.dept)}</div>`:''}`,
     b.recs.map(r=>{const a=asset(r.assetId);return `<a href="#" data-act="asset" data-v="${esc(r.assetId)}">${esc(r.assetId)}</a>${a?` <span class="muted sm">${esc(a.type)}</span>`:''}`}).join('<br>'),
     b.scan?`<span class="chip ok">${icon('check',12)}Đã ký</span>`:(b.type==='Thu Hồi'?'':'<span class="chip warn">Chưa có</span>'),
-    `<button class="btn sm" data-act="printbb" data-v="${b.batch}">${icon('print',14)}In</button> ${b.scan?`<button class="btn sm" data-act="scanView" data-v="${b.batch}">${icon('eye',14)}Xem bản ký</button>`:''}<button class="btn sm" data-act="scanAttach" data-v="${b.batch}">${icon('clip2',14)}${b.scan?'Thay':'Đính kèm bản ký'}</button>`],cls:''}));
+    `<button class="btn sm" data-act="printbb" data-v="${b.batch}">${icon('print',14)}In</button> ${b.scan?`<button class="btn sm" data-act="scanView" data-v="${b.batch}">${icon('eye',14)}Xem bản ký</button>`:''}<button class="btn sm" data-act="scanAttach" data-v="${b.batch}">${icon('clip2',14)}${b.scan?'Thay':'Đính kèm bản ký'}</button> <button class="btn sm" data-act="allocEdit" data-v="${b.batch}">${icon('edit',14)}Sửa</button>`],cls:''}));
   return tbl([['Số BB'],['Ngày'],['Loại'],['Người nhận / phòng ban'],['Thiết bị'],['Bản ký'],['','act']],rows,{empty:'Chưa có biên bản nào'})};
-function allocPick(type,chosen){
-  const el=DB.assets.filter(a=>!a.retired&&(type==='Bàn Giao'?statusOf(a)==='Trong kho':!!a.user)).sort((x,y)=>ncmp(x.id,y.id));
+function allocPick(type,chosen,extra){
+  extra=extra||[];
+  const el=DB.assets.filter(a=>extra.includes(a.id)||(!a.retired&&(type==='Bàn Giao'?statusOf(a)==='Trong kho':!!a.user))).sort((x,y)=>ncmp(x.id,y.id));
   if(!el.length)return `<div class="empty">${type==='Bàn Giao'?'Không có thiết bị nào trong kho':'Không có thiết bị nào đang được sử dụng'}</div>`;
   return `<div class="pick">${el.map(a=>`<label data-t="${esc(fold([a.id,a.type,a.brand,a.model,a.serial,a.user].join(' ')))}"><input type="checkbox" name="a" value="${esc(a.id)}" ${chosen.includes(a.id)?'checked':''}><span class="grow"><b class="mono">${esc(a.id)}</b> ${esc(devName(a))}${a.serial?` <span class="muted sm">· ${esc(a.serial)}</span>`:''}</span>${a.user?`<span class="chip acc">${esc(a.user)}</span>`:''}</label>`).join('')}</div>`}
 function allocForm(type,aid){
@@ -635,20 +636,52 @@ function allocForm(type,aid){
    <label class="f" style="justify-content:flex-end"><span><input type="checkbox" name="kids" checked> Kèm phụ kiện đi theo thiết bị</span></label>
    ${F.a('Ghi chú','note','')}</div>`,{form:'alloc',lg:1,footer:FORM_BTNS('Tạo biên bản')})}
 
-function doAlloc(d,ids){
-  const type=d.type,date=d.date,by=d.by||'IT',batch=nextId('batch');let all=[...ids];
+function doAlloc(d,ids,o){
+  o=o||{};
+  const type=d.type,date=d.date,by=d.by||'IT',batch=o.batch||nextId('batch');let all=[...ids];
   if(d.kids){ids.forEach(id=>DB.assets.filter(k=>k.parent===id&&!k.retired).forEach(k=>{if(!all.includes(k.id)&&(type==='Bàn Giao'?!k.user:k.user===asset(id).user))all.push(k.id)}))}
   const created=[];
   all.forEach(id=>{const a=asset(id);if(!a)return;
     const prev=openAlloc(id);const holder=a.user;
     if(prev&&type!=='Bàn Giao')prev.returnDate=date;
     const person=type==='Thu Hồi'?holder:d.person,dept=type==='Thu Hồi'?(prev?prev.dept:(empByName(holder)||{}).dept||''):d.dept;
-    const rec={id:nextId('alloc'),type,assetId:id,person:person||'',dept:dept||'',date,returnDate:type==='Thu Hồi'?date:'',by,cond:d.cond,note:d.note||'',batch,scan:null};
+    const rec={id:(o.idMap&&o.idMap[id])||nextId('alloc'),type,assetId:id,person:person||'',dept:dept||'',date,returnDate:type==='Thu Hồi'?date:'',by,cond:d.cond,note:d.note||'',batch,scan:o.scan?Object.assign({},o.scan):null,prevUser:holder||''};
     DB.allocs.push(rec);created.push(rec);
     a.user=type==='Thu Hồi'?'':d.person;
     if(!DB.stock[id])DB.stock[id]={inDate:'',source:'',location:'',note:''};
-    log(type==='Bàn Giao'?'Bàn giao thiết bị':type==='Thu Hồi'?'Thu hồi thiết bị':'Điều chuyển thiết bị','ThietBi',id,type==='Thu Hồi'?`Thu hồi từ ${holder||'—'}`:`${holder?holder+' → ':''}${d.person}${d.dept?' ('+d.dept+')':''}`)});
+    if(!o.quiet)log(type==='Bàn Giao'?'Bàn giao thiết bị':type==='Thu Hồi'?'Thu hồi thiết bị':'Điều chuyển thiết bị','ThietBi',id,type==='Thu Hồi'?`Thu hồi từ ${holder||'—'}`:`${holder?holder+' → ':''}${d.person}${d.dept?' ('+d.dept+')':''}`)});
+  if(o.idMap)DB.allocs.sort((x,y)=>x.id-y.id);
   save();return {batch,n:created.length}}
+
+/* ===== Sửa biên bản: hoàn tác tác động của biên bản rồi lập lại với dữ liệu mới ===== */
+function bbConflict(b){
+  const mine=new Set(b.recs.map(r=>r.id));
+  for(const r of b.recs){
+    const a=asset(r.assetId);
+    if(!a)return `Thiết bị ${r.assetId} không còn trong danh sách.`;
+    if(a.retired)return `Thiết bị ${r.assetId} đã thanh lý nên không thể sửa biên bản này.`;
+    const later=DB.allocs.filter(x=>x.assetId===r.assetId&&x.id>r.id&&!mine.has(x.id)).sort((x,y)=>y.id-x.id)[0];
+    if(later){const lb=bbOf(later.batch||('x'+later.id));return `Thiết bị ${r.assetId} đã có biên bản mới hơn${lb?' ('+bbNo(lb)+')':''}. Hãy sửa biên bản mới nhất của thiết bị đó trước.`}
+  }
+  return ''}
+function revertBatch(b){
+  const mine=new Set(b.recs.map(r=>r.id));
+  [...b.recs].sort((x,y)=>y.id-x.id).forEach(r=>{
+    const a=asset(r.assetId);
+    const prev=DB.allocs.filter(x=>x.assetId===r.assetId&&x.id<r.id&&!mine.has(x.id)).sort((x,y)=>y.id-x.id)[0];
+    if(r.type!=='Bàn Giao'&&prev&&prev.type!=='Thu Hồi'&&prev.returnDate===r.date)prev.returnDate='';
+    if(a)a.user=r.type==='Bàn Giao'?'':(r.prevUser!=null&&r.prevUser!==''?r.prevUser:(r.type==='Thu Hồi'?r.person:(prev?prev.person:'')))});
+  DB.allocs=DB.allocs.filter(x=>!mine.has(x.id))}
+function allocEditForm(key){
+  const b=bbOf(key);if(!b)return;const bad=bbConflict(b);if(bad){toast(bad);return}
+  const r0=b.recs[0],type=b.type,ids=b.recs.map(r=>r.assetId);
+  modal('Sửa biên bản '+bbNo(b),`${dl('dlEmp',activeEmps().map(e=>e.name))}${dl('dlDept',DB.depts)}<input type="hidden" name="batch" value="${esc(b.batch)}"><input type="hidden" name="type" value="${esc(type)}"><div class="frm">
+   <div class="full sm muted">Loại biên bản: <b>${esc(type)}</b>. Khi lưu, app hoàn tác biên bản cũ rồi áp dụng lại theo thiết bị/thông tin mới; số biên bản${b.scan?' và bản ký đã đính kèm':''} được giữ nguyên.${b.scan?' Nếu đổi thiết bị hay người nhận, hãy kiểm tra lại bản ký cho khớp.':''}</div>
+   <div class="full"><span class="sm muted">Chọn thiết bị</span><input type="search" placeholder="Lọc danh sách…" data-input="pickq" style="width:100%;margin:4px 0"><div id="pickbox">${allocPick(type,ids,ids)}</div></div>
+   <div id="whoBox" class="full frm" style="${type==='Thu Hồi'?'display:none':''}">${F.t('Người nhận','person',type==='Thu Hồi'?'':r0.person,{list:'dlEmp',on:'empPick',ph:'Chọn hoặc gõ tên'})}${F.t('Phòng ban','dept',type==='Thu Hồi'?'':r0.dept,{list:'dlDept'})}</div>
+   ${F.d('Ngày thực hiện','date',r0.date,{req:1})}${F.t('Người bàn giao','by',r0.by||'IT')}
+   ${F.s('Tình trạng thiết bị','cond',r0.cond,COND)}
+   ${F.a('Ghi chú','note',r0.note||'')}</div>`,{form:'allocEdit',lg:1,footer:FORM_BTNS('Lưu thay đổi')})}
 
 function handoverHTML(batch){
   const recs=DB.allocs.filter(r=>String(r.batch||'x'+r.id)===String(batch));if(!recs.length)return '';const r0=recs[0],t=r0.type,S=DB.settings;
@@ -847,7 +880,7 @@ const ACT={
    log('Xóa thiết bị','ThietBi',a.id,[a.type,a.model,a.serial].join(' / '));save();render();toast('Đã xóa')},true)},
  retire(d){const a=asset(d.v);if(a.user){toast('Hãy thu hồi thiết bị về kho trước khi thanh lý');return}ask('Thanh lý thiết bị',`Đánh dấu <b>${esc(a.id)}</b> đã thanh lý/loại bỏ? Thiết bị sẽ không còn trong kho và kiểm kê.`,'Thanh lý',()=>{a.retired=today();log('Thanh lý thiết bị','ThietBi',a.id,'');save();render();toast('Đã thanh lý')})},
  unretire(d){const a=asset(d.v);a.retired='';log('Khôi phục thiết bị','ThietBi',a.id,'');save();closeModal();render();toast('Đã khôi phục')},
- allocForm(d){allocForm(d.v,d.a)},printbb(d){printHTML(handoverHTML(d.v))},
+ allocForm(d){allocForm(d.v,d.a)},allocEdit(d){allocEditForm(d.v)},printbb(d){printHTML(handoverHTML(d.v))},
  scanAttach(d){pickFile('image/*,application/pdf',f=>attachScan(d.v,f))},scanView(d){viewScan(d.v)},
  stockForm(d){const s=DB.stock[d.v]||{};modal('Thông tin kho — '+esc(d.v),`<input type="hidden" name="id" value="${esc(d.v)}"><div class="frm">${F.t('Nguồn nhập','source',s.source)}${F.d('Ngày nhập kho','inDate',s.inDate)}${F.t('Vị trí kho','location',s.location)}${F.a('Ghi chú','note',s.note)}</div>`,{form:'stock',footer:FORM_BTNS()})},
  repairForm(d){const r=d.v?DB.repairs.find(x=>x.id==d.v):{assetId:d.a||'',reportDate:today(),issue:'',vendor:'',owner:DB.settings.itName||'',note:'',cost:0,doneDate:'',result:''};
@@ -920,6 +953,19 @@ const SUB={
    if(d.type!=='Thu Hồi'){d.person=(d.person||'').trim();if(!d.person){toast('Hãy nhập người nhận');return}const e=empByName(d.person);if(e&&!d.dept)d.dept=e.dept}
    const r=doAlloc(d,ids);closeModal();render();const b=bbOf(r.batch);
    modal('Đã lập biên bản',`<p style="margin:0">Đã tạo <b>${bbNo(b)}</b> — ${esc(d.type)} ${r.n} thiết bị${d.type!=='Thu Hồi'?' cho <b>'+esc(d.person)+'</b>':''}. In biên bản để hai bên ký, sau đó chụp ảnh bản đã ký và đính kèm vào biên bản.</p>`,{footer:`<button class="btn" data-act="close">Đóng</button><button class="btn primary" data-act="printbb" data-v="${r.batch}">${icon('print',14)}In biên bản</button>`,nofocus:1})},
+ allocEdit(d,f){const b=bbOf(d.batch);if(!b){toast('Không tìm thấy biên bản');return}
+   const bad=bbConflict(b);if(bad){toast(bad);return}
+   const ids=$$('input[name=a]:checked',f).map(x=>x.value);if(!ids.length){toast('Hãy chọn ít nhất một thiết bị');return}
+   d.kids=false;
+   if(d.type!=='Thu Hồi'){d.person=(d.person||'').trim();if(!d.person){toast('Hãy nhập người nhận');return}const e=empByName(d.person);if(e&&!d.dept)d.dept=e.dept}
+   const oldIds=b.recs.map(r=>r.assetId),idMap={};b.recs.forEach(r=>{idMap[r.assetId]=r.id});
+   const scan=b.scan,legacy=String(b.batch).startsWith('x');
+   const bak=JSON.stringify({allocs:DB.allocs,assets:DB.assets.map(a=>[a.id,a.user])});
+   revertBatch(b);
+   const okAll=ids.every(id=>{const a=asset(id);return a&&!a.retired&&(d.type==='Bàn Giao'?statusOf(a)==='Trong kho':!!a.user)});
+   if(!okAll){const o=JSON.parse(bak);DB.allocs=o.allocs;o.assets.forEach(([id,u])=>{const a=asset(id);if(a)a.user=u});toast('Có thiết bị không còn ở trạng thái phù hợp (đang ở kho/đang sử dụng) — chưa thay đổi gì');return}
+   const r=doAlloc(d,ids,{batch:legacy?undefined:b.batch,idMap,scan,quiet:true});
+   log('Sửa biên bản','CapPhat','BB-'+String(r.batch).padStart(4,'0'),`${d.type}: ${oldIds.join(', ')} → ${ids.join(', ')}${d.type!=='Thu Hồi'?' · '+d.person:''}`);save();closeModal();render();toast('Đã cập nhật biên bản')},
  stock(d){DB.stock[d.id]=Object.assign(DB.stock[d.id]||{},{source:d.source,inDate:d.inDate,location:d.location,note:d.note});log('Sửa thông tin kho','KhoTaiSan',d.id,d.location);save();closeModal();render()},
  repair(d){if(!d.assetId){toast('Hãy chọn thiết bị');return}
    if(d.id){const r=DB.repairs.find(x=>x.id==d.id);Object.assign(r,{assetId:d.assetId,reportDate:d.reportDate,issue:d.issue,vendor:d.vendor,owner:d.owner,note:d.note,cost:+d.cost||0,doneDate:d.doneDate||'',result:d.result||''});log('Sửa phiếu sửa chữa','SuaChua',d.assetId,d.issue)}
