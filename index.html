@@ -304,7 +304,7 @@ const idb={db:null,open(){return this.db||(this.db=new Promise((res,rej)=>{const
 /* ===== Cấu hình thiết bị & dữ liệu ===== */
 const DEFAULT_G_CLIENT_ID='160509043267-rq97u0revcveeglq15mo1tappf7aikih.apps.googleusercontent.com'; // Google Client ID (dùng chung với app Tiền Trọ được; đổi nếu bạn tạo ID riêng)
 const DEFAULT_OTP_URL=''; // Dán địa chỉ Apps Script (…/exec) của app này vào đây để khỏi nhập ở màn hình đăng nhập
-const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.4.3';
+const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.4.4';
 const DRIVE_FOLDER='Quản lý thiết bị CNTT',DRIVE_FILE='ITAsset_data.json';
 let CFG={gClientId:'',gFileId:null,gFolderId:null,syncPid:null,syncRev:0,view:'dash',driver:null,lastAt:null};
 try{Object.assign(CFG,JSON.parse(localStorage.getItem('itam.cfg')||'{}'))}catch(e){}
@@ -859,9 +859,31 @@ LIST.repair=()=>{const f=fl(),R=DB.repairs.filter(r=>(!f.status||(f.status==='op
 /* ===== Bản quyền ===== */
 function vLic(){const f=fl(),t=UI.tab.lic||'assign';
   const head=tabs('lic',[['assign','Tài khoản đang cấp'],['cat','Danh mục gói'],['hist','Lịch sử']],'assign');
-  if(t==='assign')return head+`<div class="toolbar">${searchBox('Tìm tài khoản, email, nhân viên…')}${sel('pkg',f.pkg,DB.licCat.map(c=>c.name),'Mọi gói')}${sel('dept',f.dept,DB.depts.slice().sort(ncmp),'Mọi phòng ban')}${sel('status',f.status===undefined?'Đang sử dụng':f.status,['Đang sử dụng','Đã thu hồi'],'Tất cả')}<button class="btn" data-act="licCsv">${icon('dl',14)}Xuất CSV</button></div><div id="vlist">${LIST.lic()}</div>`;
+  if(t==='assign')return head+`<div class="toolbar">${searchBox('Tìm tài khoản, email, nhân viên…')}${sel('pkg',f.pkg,DB.licCat.map(c=>c.name),'Mọi gói')}${sel('dept',f.dept,DB.depts.slice().sort(ncmp),'Mọi phòng ban')}${sel('status',f.status===undefined?'Đang sử dụng':f.status,['Đang sử dụng','Đã thu hồi'],'Tất cả')}<button class="btn" data-act="licCsv">${icon('dl',14)}Xuất CSV</button><button class="btn" data-act="m365">${icon('swap',14)}Đối chiếu Microsoft 365</button></div><div id="vlist">${LIST.lic()}</div>`;
   if(t==='cat')return head+`<div class="toolbar"><button class="btn primary" data-act="catForm">${icon('plus',15)}Thêm gói</button></div>`+tbl([['Gói'],['Nhà cung cấp'],['Loại'],['Giá/tháng'],['Giá/năm'],['Đang dùng'],['','act']],DB.licCat.map(c=>({c:[esc(c.name)+(c.source?`<div class="muted sm" style="max-width:420px;font-weight:400">${esc(c.source)}</div>`:''),esc(c.vendor),esc(c.kind),money(c.priceMonth),money(c.priceYear),licActive().filter(l=>l.pkg===c.name).length,`<button class="btn sm" data-act="catForm" data-v="${c.id}">${icon('edit',14)}Sửa</button><button class="btn sm danger" data-act="catDel" data-v="${c.id}">${icon('trash',14)}</button>`]})),{empty:'Chưa có gói bản quyền'});
   return head+`<div class="toolbar">${searchBox('Tìm lịch sử…')}</div><div id="vlist">${LIST.lic()}</div>`}
+/* ===== Đối chiếu danh sách người dùng Microsoft 365 (CSV xuất từ trung tâm quản trị) ===== */
+function m365Rows(text){const t=parseCSV(text).filter(r=>r.some(c=>String(c).trim()));if(t.length<2)return [];
+  const h=t[0].map(x=>fold(x).trim()),ix=n=>h.indexOf(n),iU=ix('user principal name'),iD=ix('display name'),iL=ix('licenses'),iF=ix('first name'),iN=ix('last name');
+  if(iU<0||iL<0)throw new Error('Tệp không phải danh sách người dùng Microsoft 365 (thiếu cột User principal name / Licenses)');
+  const g=(r,i)=>i<0?'':String(r[i]||'').trim();
+  return t.slice(1).map(r=>({email:g(r,iU),display:g(r,iD),lic:g(r,iL).split('+').map(x=>x.trim()).filter(Boolean),full:[g(r,iF),g(r,iN)].filter(x=>x&&x!=='-').join(' ')})).filter(r=>r.email)}
+function m365Calc(rows,db){
+  const seen=new Set(),R=rows.filter(r=>{const k=fold(r.email);if(seen.has(k))return false;seen.add(k);return true});
+  const paidOf=r=>r.lic.find(l=>/microsoft 365|office 365/i.test(l))||'',catOf=n=>db.licCat.find(c=>fold(c.name)===fold(n));
+  const used=new Set(),pick=a=>a.find(l=>l.status==='Đang sử dụng')||a[0];
+  const add=[],upd=[],same=[],skip=[],pk=new Set();
+  R.forEach(r=>{const pkg=paidOf(r);if(!pkg){skip.push(r);return}pk.add(fold(pkg));
+    const free=r.lic.filter(l=>l!==pkg);
+    let l=pick(db.licAssign.filter(x=>!used.has(x.id)&&fold(x.email)===fold(r.email)))||pick(db.licAssign.filter(x=>!used.has(x.id)&&fold(x.account)===fold(r.display)))||pick(db.licAssign.filter(x=>!used.has(x.id)&&r.full&&fold(x.person)===fold(r.full)&&fold(x.pkg).includes('365')));
+    if(!l){const e=db.employees.find(e=>r.full&&fold(e.name)===fold(r.full));add.push({r,pkg,person:e?e.name:'',dept:e?e.dept:'',free});return}
+    used.add(l.id);const ch=[];
+    if(fold(l.email)!==fold(r.email))ch.push(['email',l.email||'(trống)',r.email]);
+    if(fold(l.pkg)!==fold(pkg))ch.push(['pkg',l.pkg,pkg]);
+    if(l.status!=='Đang sử dụng')ch.push(['status','Đã thu hồi','Đang dùng']);
+    ch.length?upd.push({r,l,pkg,ch}):same.push(l)});
+  const extra=db.licAssign.filter(l=>l.status==='Đang sử dụng'&&!used.has(l.id)&&(pk.has(fold(l.pkg))||/microsoft 365/i.test(l.pkg)));
+  return {add,upd,same,skip,extra,total:R.length}}
 LIST.lic=()=>{const f=fl(),t=UI.tab.lic||'assign';
   if(t==='hist'){const H=DB.licHist.filter(h=>has([h.account,h.email,h.person,h.pkg,h.action,h.detail].join(' '),f.q)).sort((a,b)=>b.id-a.id).slice(0,300);
     return tbl([['Thời gian'],['Hành động'],['Tài khoản'],['Nhân viên'],['Gói'],['Người thực hiện'],['Nội dung']],H.map(h=>({c:[dmyt(h.t),esc(h.action),esc(h.account),esc(h.person),esc(h.pkg),esc(h.by),esc(h.detail)]})),{empty:'Chưa có lịch sử'})}
@@ -1030,6 +1052,27 @@ const ACT={
    modal(d.v?'Sửa bản quyền':'Cấp bản quyền',`<input type="hidden" name="id" value="${esc(d.v||'')}">`+FIELD_LIC(l,DB.licCat),{form:'lic',footer:FORM_BTNS()})},
  licRevoke(d){const l=DB.licAssign.find(x=>x.id==d.v);modal('Thu hồi bản quyền',`<input type="hidden" name="id" value="${l.id}"><p style="margin-top:0"><b>${esc(l.account)}</b> — ${esc(l.pkg)}${l.person?' · '+esc(l.person):''}</p><div class="frm">${F.d('Ngày thu hồi','date',today(),{req:1})}${F.t('Người thực hiện','by',DB.settings.itName||'IT')}${F.a('Lý do','note','')}</div>`,{form:'licRevoke',footer:FORM_BTNS('Thu hồi')})},
  licRegrant(d){const l=DB.licAssign.find(x=>x.id==d.v);l.status='Đang sử dụng';l.dateRevoked='';l.revokedBy='';l.dateGiven=today();licLog(l,'Cấp lại','Cấp lại bản quyền');log('Cấp lại bản quyền','CapPhatBanQuyen',l.account,l.pkg);save();render();toast('Đã cấp lại')},
+ m365(){const i=document.createElement('input');i.type='file';i.accept='.csv,text/csv';i.multiple=true;i.style.display='none';
+   i.onchange=async()=>{const fs=[...i.files];i.remove();if(!fs.length)return;try{let rows=[];for(const f of fs)rows=rows.concat(m365Rows(await f.text()));if(!rows.length){toast('Tệp không có dòng dữ liệu');return}
+     const P=m365Calc(rows,DB);window.__m365=P;
+     const cost=(n,k)=>{const c=DB.licCat.find(x=>fold(x.name)===fold(n));return c?c[k]:0};
+     const li=(k,arr,fn,chk)=>arr.length?`<h3 style="margin:14px 0 6px">${({add:'Thêm mới',upd:'Sửa cho đúng',extra:'Có trong app nhưng không còn trên Microsoft 365'})[k]} (${arr.length})</h3><div class="sm">${arr.map((o,j)=>`<label style="display:flex;gap:8px;align-items:flex-start;padding:3px 0"><input type="checkbox" class="m365c" data-k="${k}" data-i="${j}" ${chk?'checked':''}><span>${fn(o)}</span></label>`).join('')}</div>`:'';
+     const body=`<p style="margin-top:0">Đọc <b>${P.total}</b> tài khoản từ ${fs.length} tệp. Khớp hoàn toàn: <b>${P.same.length}</b>. Tick các thay đổi muốn áp dụng — dữ liệu hiện tại được lưu bản chụp trước khi sửa.</p>`
+      +li('add',P.add,o=>`<b>${esc(o.r.display||o.r.email)}</b> · ${esc(o.r.email)} · ${esc(o.pkg)}${o.person?` · NV: ${esc(o.person)}`:' · <i>chưa khớp nhân viên</i>'}${o.free.length?` <span class="muted">(kèm ${esc(o.free.join(', '))})</span>`:''}`,1)
+      +li('upd',P.upd,o=>`<b>${esc(o.l.account)}</b>: ${o.ch.map(c=>({email:'email',pkg:'gói',status:'trạng thái'})[c[0]]+` <s>${esc(c[1])}</s> → <b>${esc(c[2])}</b>`).join('; ')}`,1)
+      +li('extra',P.extra,l=>`<b>${esc(l.account)}</b> · ${esc(l.email)} · ${esc(l.pkg)} — tick để <b>thu hồi</b>`,0)
+      +(P.skip.length?`<p class="sm muted">Bỏ qua ${P.skip.length} tài khoản không có gói Microsoft 365 trả phí: ${P.skip.map(r=>esc(r.display||r.email)).join(', ')}</p>`:'')
+      +(!P.add.length&&!P.upd.length&&!P.extra.length?'<div class="banner">Dữ liệu trong app đã khớp hoàn toàn với danh sách Microsoft 365.</div>':'');
+     modal('Đối chiếu với Microsoft 365',body,{lg:1,nofocus:1,footer:`<button class="btn" data-act="close">Hủy</button>${P.add.length||P.upd.length||P.extra.length?'<button class="btn primary" data-act="m365Go">Áp dụng</button>':''}`})}catch(e){toast(e.message||'Không đọc được tệp')}};
+   document.body.appendChild(i);i.click()},
+ m365Go(){const P=window.__m365;if(!P)return;const on=(k,i)=>{const e=document.querySelector(`.m365c[data-k="${k}"][data-i="${i}"]`);return !!(e&&e.checked)};
+   (async()=>{await snapshot('Trước khi đối chiếu Microsoft 365');let a=0,u=0,x=0;
+     const cat=n=>{let c=DB.licCat.find(y=>fold(y.name)===fold(n));if(!c){c={id:nextId('licCat'),name:n,vendor:'Microsoft',kind:'Trả phí',priceMonth:0,priceYear:0,source:'Tạo khi đối chiếu Microsoft 365 — hãy cập nhật đơn giá'};DB.licCat.push(c)}return c};
+     P.add.forEach((o,i)=>{if(!on('add',i))return;const c=cat(o.pkg),l={id:nextId('licAssign'),status:'Đang sử dụng',dateRevoked:'',revokedBy:'',account:o.r.display||o.r.email,email:o.r.email,person:o.person,dept:o.dept||'',pkg:c.name,priceMonth:+c.priceMonth||0,priceYear:+c.priceYear||0,note:o.free.length?'Kèm: '+o.free.join(', '):'',dateGiven:today()};DB.licAssign.push(l);licLog(l,'Cấp phát','Đối chiếu Microsoft 365: thêm tài khoản');log('Cấp phát bản quyền','CapPhatBanQuyen',l.account,l.pkg+' (đối chiếu M365)');a++});
+     P.upd.forEach((o,i)=>{if(!on('upd',i))return;const l=o.l,d=[];o.ch.forEach(c=>{if(c[0]==='email'){l.email=o.r.email;d.push('email → '+o.r.email)}else if(c[0]==='pkg'){const k=cat(o.pkg);l.pkg=k.name;l.priceMonth=+k.priceMonth||0;l.priceYear=+k.priceYear||0;d.push('gói → '+k.name)}else if(c[0]==='status'){l.status='Đang sử dụng';l.dateRevoked='';l.revokedBy='';l.dateGiven=today();d.push('cấp lại')}});
+       licLog(l,'Chỉnh sửa','Đối chiếu Microsoft 365: '+d.join('; '));log('Chỉnh sửa bản quyền','CapPhatBanQuyen',l.account,d.join('; '));u++});
+     P.extra.forEach((l,i)=>{if(!on('extra',i))return;l.status='Đã thu hồi';l.dateRevoked=today();l.revokedBy=DB.settings.itName||'IT';licLog(l,'Thu hồi','Đối chiếu Microsoft 365: không còn trên danh sách người dùng');log('Thu hồi bản quyền','CapPhatBanQuyen',l.account,l.pkg+' (đối chiếu M365)');x++});
+     window.__m365=null;save();closeModal();render();toast(`Đã thêm ${a}, sửa ${u}, thu hồi ${x}`)})()},
  licDel(d){const l=DB.licAssign.find(x=>x.id==d.v);ask('Xóa tài khoản bản quyền',`Xóa <b>${esc(l.account)}</b> khỏi danh sách? (Nếu chỉ không dùng nữa, nên chọn Thu hồi để giữ lịch sử.)`,'Xóa',()=>{DB.licAssign=DB.licAssign.filter(x=>x.id!==l.id);log('Xóa bản quyền','CapPhatBanQuyen',l.account,l.pkg);save();render()},true)},
  licCsv(){const f=fl(),st=f.status===undefined?'Đang sử dụng':f.status;csvOut('BanQuyen_'+today()+'.csv',['Tài khoản','Email','Nhân viên','Phòng ban','Gói','Giá/tháng','Giá/năm','Trạng thái','Ngày cấp','Ngày thu hồi'],DB.licAssign.filter(l=>(!st||l.status===st)&&(!f.pkg||l.pkg===f.pkg)&&(!f.dept||l.dept===f.dept)).map(l=>[l.account,l.email,l.person,l.dept,l.pkg,l.priceMonth,l.priceYear,l.status,l.dateGiven,l.dateRevoked]))},
  empForm(d){const e=d.v?DB.employees.find(x=>x.id==d.v):{name:'',dept:'',title:'',status:'Đang làm việc',joinDate:'',leaveDate:''};modal(d.v?'Sửa nhân viên':'Thêm nhân viên',`<input type="hidden" name="id" value="${esc(d.v||'')}">${dl('dlDept',DB.depts)}<div class="frm">${F.t('Họ tên','name',e.name,{req:1,cls:'full'})}${F.t('Phòng ban','dept',e.dept,{list:'dlDept'})}${F.t('Chức vụ','title',e.title||'')}${F.s('Trạng thái','status',e.status,['Đang làm việc','Nghỉ việc'])}${F.d('Ngày vào làm','joinDate',e.joinDate)}${F.d('Ngày nghỉ việc','leaveDate',e.leaveDate)}</div>`,{form:'emp',footer:FORM_BTNS()})},
