@@ -117,11 +117,11 @@ details.more{grid-column:1/-1;border:1px solid var(--line);border-radius:10px;pa
 (()=>{
 'use strict';
 /* ===== Mô hình dữ liệu (thuần, không dùng DOM — chạy được cả trong trình duyệt lẫn Node) ===== */
-const SEQ0={alloc:0,batch:0,repair:0,licCat:0,licAssign:0,licHist:0,inv:0,emp:0,audit:0};
-const COLL=['depts','employees','assets','allocs','repairs','licCat','licAssign','licHist','audit','inventories'];
+const SEQ0={decision:0,alloc:0,batch:0,repair:0,licCat:0,licAssign:0,licHist:0,inv:0,emp:0,audit:0};
+const COLL=['decisions','depts','employees','assets','allocs','repairs','licCat','licAssign','licHist','audit','inventories'];
 function blankDB(){return {v:1,rev:1,pid:'',deviceId:'',updatedAt:Date.now(),
-  settings:{company:'JEANIC GARMENT',itName:'IT',prefix:'JGS-',codeMode:'seq',codePad:4,warnDays:60,address:''},
-  depts:[],employees:[],assets:[],stock:{},allocs:[],repairs:[],licCat:[],licAssign:[],licHist:[],audit:[],inventories:[],seq:Object.assign({},SEQ0)}}
+  settings:{company:'JEANIC GARMENT',itName:'IT',prefix:'JGS-',codeMode:'seq',codePad:4,warnDays:60,address:'',place:'',docShort:'',directorName:'Nguyễn Thị Bé',directorTitle:'Giám đốc'},
+  depts:[],employees:[],assets:[],stock:{},allocs:[],repairs:[],licCat:[],licAssign:[],licHist:[],audit:[],inventories:[],decisions:[],seq:Object.assign({},SEQ0)}}
 function normalizeDB(d){
   const o=Object.assign(blankDB(),d||{});
   o.settings=Object.assign(blankDB().settings,(d&&d.settings)||{});
@@ -129,7 +129,7 @@ function normalizeDB(d){
   if(!o.stock||typeof o.stock!=='object'||Array.isArray(o.stock))o.stock={};
   o.seq=Object.assign({},SEQ0,o.seq||{});
   const bump=(k,arr)=>{const m=arr.reduce((x,r)=>Math.max(x,+r.id||0),0);if(o.seq[k]<m)o.seq[k]=m};
-  bump('alloc',o.allocs);bump('repair',o.repairs);bump('licCat',o.licCat);bump('licAssign',o.licAssign);bump('licHist',o.licHist);bump('inv',o.inventories);bump('emp',o.employees);bump('audit',o.audit);
+  bump('alloc',o.allocs);bump('decision',o.decisions);bump('repair',o.repairs);bump('licCat',o.licCat);bump('licAssign',o.licAssign);bump('licHist',o.licHist);bump('inv',o.inventories);bump('emp',o.employees);bump('audit',o.audit);
   const mb=o.allocs.reduce((x,r)=>Math.max(x,+r.batch||0),0);if(o.seq.batch<mb)o.seq.batch=mb;
   return o;
 }
@@ -303,7 +303,7 @@ const idb={db:null,open(){return this.db||(this.db=new Promise((res,rej)=>{const
 /* ===== Cấu hình thiết bị & dữ liệu ===== */
 const DEFAULT_G_CLIENT_ID='160509043267-rq97u0revcveeglq15mo1tappf7aikih.apps.googleusercontent.com'; // Google Client ID (dùng chung với app Tiền Trọ được; đổi nếu bạn tạo ID riêng)
 const DEFAULT_OTP_URL=''; // Dán địa chỉ Apps Script (…/exec) của app này vào đây để khỏi nhập ở màn hình đăng nhập
-const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.2';
+const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.3';
 const DRIVE_FOLDER='Quản lý thiết bị CNTT',DRIVE_FILE='ITAsset_data.json';
 let CFG={gClientId:'',gFileId:null,gFolderId:null,syncPid:null,syncRev:0,view:'dash',driver:null,lastAt:null};
 try{Object.assign(CFG,JSON.parse(localStorage.getItem('itam.cfg')||'{}'))}catch(e){}
@@ -483,12 +483,12 @@ function loginScreen(){return new Promise(done=>{
 
 /* ===== Khung giao diện ===== */
 const NAV=[
- {id:'dash',label:'Tổng quan',icon:'home'},{id:'assets',label:'Thiết bị',icon:'laptop'},{id:'alloc',label:'Cấp phát & biên bản',icon:'swap',title:'Cấp phát & biên bản bàn giao'},
+ {id:'dash',label:'Tổng quan',icon:'home'},{id:'assets',label:'Thiết bị',icon:'laptop'},{id:'alloc',label:'Cấp phát & biên bản',icon:'swap',title:'Cấp phát & biên bản bàn giao'},{id:'decision',label:'Quyết định máy về nhà',icon:'clip2',title:'Quyết định sử dụng máy tính công ty tại nhà'},
  {id:'stock',label:'Kho',icon:'store'},{id:'repair',label:'Sửa chữa',icon:'wrench'},{id:'lic',label:'Bản quyền',icon:'key',title:'Bản quyền phần mềm'},
  {id:'people',label:'Nhân viên & phòng ban',icon:'users'},{id:'inv',label:'Kiểm kê',icon:'clip'},{id:'report',label:'Báo cáo',icon:'chart'},
  {id:'audit',label:'Nhật ký',icon:'log',title:'Nhật ký thao tác'},{id:'settings',label:'Cài đặt & dữ liệu',icon:'cog'}];
 const TAB_IDS=['dash','assets','alloc','lic'];
-const TOP_ACT={assets:['assetForm','Thêm thiết bị'],alloc:['allocForm','Lập biên bản'],repair:['repairForm','Báo sửa chữa'],lic:['licForm','Cấp bản quyền'],people:['empForm','Thêm nhân viên'],inv:['invForm','Đợt kiểm kê mới'],stock:['assetForm','Nhập kho thiết bị']};
+const TOP_ACT={assets:['assetForm','Thêm thiết bị'],alloc:['allocForm','Lập biên bản'],decision:['decForm','Lập quyết định'],repair:['repairForm','Báo sửa chữa'],lic:['licForm','Cấp bản quyền'],people:['empForm','Thêm nhân viên'],inv:['invForm','Đợt kiểm kê mới'],stock:['assetForm','Nhập kho thiết bị']};
 const fl=()=>UI.f[UI.view]||(UI.f[UI.view]={});
 function syncChip(){
   const L={local:'Chỉ lưu trên máy',pending:'Chờ đồng bộ…',syncing:'Đang đồng bộ…',error:'Lỗi đồng bộ',needauth:'Cần đăng nhập lại'};
@@ -511,7 +511,7 @@ function renderChrome(){
   $('#tabbar').innerHTML=TAB_IDS.map(id=>{const n=NAV.find(x=>x.id===id);return `<button data-act="nav" data-v="${id}" ${id===UI.view?'aria-current="page"':''}>${icon(n.icon)}${n.label.split(' ')[0]}</button>`}).join('')+`<button data-act="menu">${icon('menu')}Thêm</button>`;
   $('#top').innerHTML=`<button class="btn icon ghost" id="menuBtn" data-act="menu" aria-label="Mở menu">${icon('menu',20)}</button><h1>${esc(cur.title||cur.label)}</h1>${ta?`<button class="btn primary" data-act="${ta[0]}">${icon('plus',15)}${ta[1]}</button>`:''}<span class="syncslot">${syncChip()}</span>`}
 const LIST={};
-function render(){renderChrome();const V={dash:vDash,assets:vAssets,alloc:vAlloc,stock:vStock,repair:vRepair,lic:vLic,people:vPeople,inv:vInv,report:vReport,audit:vAudit,settings:vSettings}[UI.view]||vDash;
+function render(){renderChrome();const V={dash:vDash,assets:vAssets,alloc:vAlloc,decision:vDecision,stock:vStock,repair:vRepair,lic:vLic,people:vPeople,inv:vInv,report:vReport,audit:vAudit,settings:vSettings}[UI.view]||vDash;
   $('#view').innerHTML=`<div id="syncWarn">${syncWarn()}</div>`+V();$('#side').classList.remove('open');CFG.view=UI.view;}
 function relist(){const e=$('#vlist');if(e&&LIST[UI.view])e.innerHTML=LIST[UI.view]()}
 const tabs=(key,items,def)=>{const cur=UI.tab[key]||def;return `<div class="tabs">${items.map(([id,l])=>`<button class="btn" aria-pressed="${cur===id}" data-act="tab" data-k="${key}" data-v="${id}">${l}</button>`).join('')}</div>`};
@@ -537,6 +537,7 @@ function vDash(){
   if(left.length)al.push(`<li>${icon('alert')} <b>${left.length} nhân viên đã nghỉ việc</b> vẫn đang giữ thiết bị/bản quyền: ${left.slice(0,4).map(x=>`${esc(x.e.name)} (${x.h.assets.length} TB, ${x.h.lics.length} BQ)`).join('; ')}${left.length>4?'…':''} <button class="btn sm" data-act="goto" data-v="people" data-f="status=Nghỉ việc">Xem</button></li>`);
   if(wn.length)al.push(`<li>${icon('alert')} <b>${wn.length} thiết bị</b> bảo hành đã/sắp hết hạn (trong ${DB.settings.warnDays} ngày) <button class="btn sm" data-act="goto" data-v="assets" data-f="warranty=soon">Xem</button></li>`);
   if(nb.length)al.push(`<li>${icon('alert')} <b>${nb.length} biên bản</b> chưa có bản ký đính kèm <button class="btn sm" data-act="goto" data-v="alloc" data-f="scan=noscan">Xem</button></li>`);
+  const pd0=(DB.decisions||[]).filter(x=>!x.scan);if(pd0.length)al.push(`<li>${icon('alert')} <b>${pd0.length} quyết định mang máy về nhà</b> chờ duyệt/chưa có bản ký <button class="btn sm" data-act="goto" data-v="decision" data-f="st=pending">Xem</button></li>`);
   if(openR.length)al.push(`<li>${icon('wrench')} <b>${openR.length} phiếu sửa chữa</b> đang mở <button class="btn sm" data-act="goto" data-v="repair" data-f="status=open">Xem</button></li>`);
   if(openI.length)al.push(`<li>${icon('clip')} Đợt kiểm kê đang thực hiện: <b>${esc(openI[0].name)}</b> <button class="btn sm" data-act="invOpen" data-v="${openI[0].id}">Mở</button></li>`);
   return `<div class="grid g4" style="margin-bottom:14px">
@@ -683,6 +684,81 @@ function allocEditForm(key){
    ${F.s('Tình trạng thiết bị','cond',r0.cond,COND)}
    ${F.a('Ghi chú','note',r0.note||'')}</div>`,{form:'allocEdit',lg:1,footer:FORM_BTNS('Lưu thay đổi')})}
 
+/* ===== Quyết định sử dụng máy tính công ty tại nhà ===== */
+const DEC_PROPOSERS=['Trưởng bộ phận IT','Trưởng phòng Hành chính - Nhân sự'];
+const decShort=()=>{const S=DB.settings;return (S.docShort||'').trim()||String(S.prefix||'').replace(/[^A-Za-z0-9]/g,'')||'CTY'};
+const decNoText=d=>`${d.no}/QĐ-${decShort()}`;
+const decStatus=d=>!d.scan?'Chờ duyệt':(!d.openEnded&&d.to&&d.to<today()?'Hết hiệu lực':'Đã duyệt');
+function nextDecNo(date){const y=String(date||today()).slice(0,4);const m=(DB.decisions||[]).filter(x=>String(x.date||'').slice(0,4)===y).reduce((n,x)=>Math.max(n,parseInt(x.no,10)||0),0);return String(m+1).padStart(2,'0')}
+function heldBy(name){return DB.assets.filter(a=>!a.retired&&a.user===name).sort((x,y)=>ncmp(x.id,y.id))}
+function decDefaultPick(name){const h=heldBy(name),ids=new Set(h.map(a=>a.id));return h.filter(a=>a.group!=='Phụ kiện'&&!(a.parent&&ids.has(a.parent))).map(a=>a.id)}
+function decPick(name,chosen,extra){
+  extra=extra||[];const list=DB.assets.filter(a=>!a.retired&&(a.user===name||extra.includes(a.id))).sort((x,y)=>ncmp(x.id,y.id));
+  if(!name)return '<div class="empty">Chọn nhân viên để lấy danh sách thiết bị đang được cấp phát</div>';
+  if(!list.length)return '<div class="empty">Nhân viên này chưa được cấp phát thiết bị nào</div>';
+  return `<div class="pick">${list.map(a=>`<label><input type="checkbox" name="a" value="${esc(a.id)}" ${chosen.includes(a.id)?'checked':''}><span class="grow"><b class="mono">${esc(a.id)}</b> ${esc(devName(a))}${a.serial?` <span class="muted sm">· ${esc(a.serial)}</span>`:''}</span>${a.group==='Phụ kiện'?'<span class="chip">Phụ kiện</span>':''}</label>`).join('')}</div>`}
+function decItems(ids,accNote){
+  const set=new Set(ids),main=ids.map(asset).filter(a=>a&&!(a.parent&&set.has(a.parent)));
+  return main.map((a,i)=>{const kids=DB.assets.filter(k=>k.parent===a.id&&!k.retired&&!main.includes(k)).map(devName);
+    if(i===0&&accNote)kids.push(accNote);return {id:a.id,name:devName(a),serial:a.serial||'',acc:kids.join(', ')}})}
+function vDecision(){const f=fl();
+  return `<div class="toolbar">${searchBox('Tìm nhân viên, số quyết định, mã thiết bị…')}${sel('st',f.st,[['pending','Chờ duyệt'],['approved','Đã duyệt'],['expired','Hết hiệu lực']],'Mọi trạng thái')}</div><div id="vlist">${LIST.decision()}</div>`}
+LIST.decision=()=>{const f=fl(),rows=(DB.decisions||[]).slice().sort((a,b)=>b.id-a.id).filter(d=>{const st=decStatus(d);
+    if(f.st==='pending'&&st!=='Chờ duyệt')return false;if(f.st==='approved'&&st!=='Đã duyệt')return false;if(f.st==='expired'&&st!=='Hết hiệu lực')return false;
+    return has([d.emp,d.dept,d.title,decNoText(d),...(d.items||[]).map(i=>i.id+' '+i.name)].join(' '),f.q)}).map(d=>{const st=decStatus(d),cls=st==='Đã duyệt'?'ok':st==='Chờ duyệt'?'warn':'bad';
+    return {c:[`<span class="mono">${esc(decNoText(d))}</span>`,dmy(d.date),`${esc(d.emp)}<div class="muted sm">${esc([d.title,d.dept].filter(Boolean).join(' · '))}</div>`,
+      (d.items||[]).map(i=>`<a href="#" data-act="asset" data-v="${esc(i.id)}">${esc(i.id)}</a> <span class="muted sm">${esc(i.name)}</span>`).join('<br>'),
+      d.openEnded?`Từ ${dmy(d.from)}<div class="muted sm">đến khi thu hồi</div>`:`${dmy(d.from)} → ${dmy(d.to)}`,
+      `<span class="chip ${cls}">${st==='Đã duyệt'?icon('check',12):''}${st}</span>${d.scan&&d.approvedDate?`<div class="muted sm">${dmy(d.approvedDate)}</div>`:''}`,
+      `<button class="btn sm" data-act="decPrint" data-v="${d.id}">${icon('print',14)}In</button> ${d.scan?`<button class="btn sm" data-act="decScanView" data-v="${d.id}">${icon('eye',14)}Xem bản ký</button>`:''}<button class="btn sm" data-act="decScanAttach" data-v="${d.id}">${icon('clip2',14)}${d.scan?'Thay':'Đính kèm bản ký'}</button> <button class="btn sm" data-act="decForm" data-v="${d.id}">${icon('edit',14)}Sửa</button> <button class="btn sm" data-act="decDel" data-v="${d.id}">${icon('trash',14)}</button>`]}});
+  return tbl([['Số QĐ'],['Ngày'],['Nhân viên'],['Thiết bị mang về'],['Thời gian'],['Duyệt'],['','act']],rows,{empty:'Chưa có quyết định nào'})};
+function decForm(id){
+  const d=id?DB.decisions.find(x=>x.id==id):null;
+  const e0=d?{name:d.emp}:{name:''};const ids=d?(d.assetIds||[]):[];
+  modal(d?'Sửa quyết định '+decNoText(d):'Lập quyết định cho mang máy tính về nhà',`${dl('dlEmpDec',activeEmps().map(e=>e.name))}${dl('dlDept',DB.depts)}<input type="hidden" name="id" value="${d?d.id:''}"><div class="frm">
+   ${F.t('Nhân viên được giao','emp',d?d.emp:'',{req:1,list:'dlEmpDec',on:'decEmp',ph:'Chọn hoặc gõ tên nhân viên',cls:'full'})}
+   ${F.t('Chức vụ','title',d?d.title:'')}${F.t('Bộ phận','dept',d?d.dept:'',{list:'dlDept'})}
+   <div class="full"><span class="sm muted">Thiết bị mang về (tự lấy từ danh sách đang cấp phát cho nhân viên — phụ kiện gắn theo thiết bị sẽ tự điền vào mục “Phụ kiện đi kèm”)</span><div id="decpick" style="margin-top:4px">${decPick(d?d.emp:'',ids,ids)}</div></div>
+   ${F.t('Phụ kiện khác (nếu có)','accNote',d?d.accNote||'':'',{ph:'VD: túi chống sốc, chuột không dây',cls:'full'})}
+   ${F.t('Tình trạng khi bàn giao','cond',d?d.cond:'Hoạt động bình thường, nguyên vẹn tem niêm phong',{cls:'full'})}
+   ${F.d('Áp dụng từ ngày','from',d?d.from:today(),{req:1})}${F.d('Đến ngày','to',d?d.to:'')}
+   <label class="f full" style="flex-direction:row;gap:8px;align-items:center"><input type="checkbox" name="openEnded" ${!d||d.openEnded?'checked':''}> <span>Cho đến khi có thông báo thu hồi (bỏ tick và nhập “Đến ngày” nếu có thời hạn)</span></label>
+   ${F.t('Số quyết định (số thứ tự)','no',d?d.no:nextDecNo(today()))}${F.d('Ngày ký quyết định','date',d?d.date:today(),{req:1})}
+   ${F.s('Xét đề nghị của','proposer',d?d.proposer:DEC_PROPOSERS[0],DEC_PROPOSERS,{cls:'full'})}
+   <div class="full sm muted">Người ký duyệt: <b>${esc(DB.settings.directorName)}</b> — ${esc(DB.settings.directorTitle)}. Lập xong → In → trình ký → chụp ảnh bản đã ký và đính kèm để chuyển sang “Đã duyệt”.</div></div>`,{form:'decision',lg:1,footer:FORM_BTNS(d?'Lưu thay đổi':'Tạo quyết định')})}
+function decisionHTML(id){
+  const d=DB.decisions.find(x=>x.id==id);if(!d)return '';const S=DB.settings,co=esc(S.company||'CÔNG TY'),dt=pd(d.date)||new Date();
+  const nm=esc(d.emp),item=(it,k)=>`<p class="b">${k?`<b>Thiết bị ${k}</b>`:''}</p><ul><li>Tên thiết bị: ${esc(it.name)}</li><li>Mã tài sản / Số Serial: ${esc(it.id)}${it.serial?' / '+esc(it.serial):''}</li><li>Phụ kiện đi kèm: ${esc(it.acc||'Không có')}</li><li>Tình trạng thiết bị khi bàn giao: ${esc(d.cond||'Hoạt động bình thường')}</li></ul>`;
+  const its=d.items||[],time=d.openEnded?`Từ ngày ${esc(dmy(d.from))} cho đến khi có thông báo thu hồi`:`Từ ngày ${esc(dmy(d.from))} đến ngày ${esc(dmy(d.to))}`;
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${esc(decNoText(d))}</title><style>@page{size:A4;margin:18mm 16mm}body{font:13pt/1.45 "Times New Roman",serif;color:#000;margin:0}
+   .hd{width:100%;border-collapse:collapse}.hd td{vertical-align:top;text-align:center;padding:0 4px;border:0}.hd .l{width:42%}.hd .r{width:58%}.u{display:inline-block;border-top:1px solid #000;width:60%;margin-top:2px}
+   h1{text-align:center;font-size:15pt;margin:18px 0 0}.st{text-align:center;font-weight:bold;margin:2px 0 14px}.c{text-align:center}p{margin:4px 0;text-align:justify}ul{margin:2px 0 6px;padding-left:22px}li{margin:1px 0}
+   .sig{width:100%;border-collapse:collapse;margin-top:18px;page-break-inside:avoid}.sig td{vertical-align:top;border:0;padding:0}.sig .l{width:50%;font-size:11pt}.sig .r{width:50%;text-align:center}.gap{height:90px}</style></head><body>
+   <table class="hd"><tr><td class="l"><b>${co.toUpperCase()}</b><br><span class="u"></span><br>Số: ${esc(decNoText(d))}</td><td class="r"><b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br><b>Độc lập - Tự do - Hạnh phúc</b><br><span class="u"></span><br><i>${esc(S.place||'……………')}, ngày ${dt.getDate()} tháng ${dt.getMonth()+1} năm ${dt.getFullYear()}</i></td></tr></table>
+   <h1>QUYẾT ĐỊNH</h1><div class="st">Về việc cho phép sử dụng máy tính của Công ty tại nhà</div>
+   <p class="c"><b>${esc(String(S.directorTitle||'Giám đốc').toUpperCase())} ${co.toUpperCase()}</b></p>
+   <p><i>Căn cứ Bộ luật Lao động năm 2019;</i></p><p><i>Căn cứ Điều lệ hoạt động của ${co};</i></p><p><i>Căn cứ Nội quy lao động và Quy chế quản lý tài sản của ${co};</i></p><p><i>Xét đề nghị của ${esc(d.proposer||DEC_PROPOSERS[0])} và nhu cầu công việc thực tế.</i></p>
+   <p class="c"><b>QUYẾT ĐỊNH:</b></p>
+   <p><b>Điều 1.</b> Cho phép Ông/Bà có thông tin dưới đây được mang thiết bị máy tính thuộc sở hữu của Công ty về sử dụng tại nhà để phục vụ mục đích công việc:</p>
+   <ul><li>Họ và tên: <b>${nm}</b></li><li>Chức vụ: ${esc(d.title||'………………')} – Bộ phận: ${esc(d.dept||'………………')}</li><li>Thời gian áp dụng: ${time}.</li></ul>
+   <p><b>Điều 2.</b> Thông tin thiết bị bàn giao</p>${its.length===1?item(its[0],''):its.map((it,i)=>item(it,i+1)).join('')}
+   <p><b>Điều 3.</b> Trách nhiệm của người được giao thiết bị</p><p>Ông/Bà ${nm} có trách nhiệm tuân thủ các quy định sau:</p>
+   <p>1. Chỉ sử dụng máy tính và các phần mềm cài đặt sẵn cho mục đích thực hiện công việc của Công ty; không tự ý cài đặt phần mềm lạ, không có bản quyền hoặc sử dụng vào mục đích cá nhân trái quy định.</p>
+   <p>2. Bảo mật tuyệt đối dữ liệu, tài liệu nội bộ của Công ty lưu trữ trên máy; không chia sẻ tài khoản, mật khẩu hoặc cho người khác mượn máy tính dưới mọi hình thức.</p>
+   <p>3. Bảo quản, giữ gìn thiết bị cẩn thận. Trường hợp làm mất mát, hư hỏng do lỗi chủ quan (rơi vỡ, vào nước, chập cháy do sử dụng sai cách...), cá nhân phải chịu trách nhiệm bồi thường thiệt hại theo Quy chế tài sản của Công ty và quy định pháp luật.</p>
+   <p>4. Hoàn trả đầy đủ thiết bị và phụ kiện cho bộ phận quản lý ngay khi hết thời hạn nêu tại Điều 1, khi có yêu cầu thu hồi đột xuất hoặc khi chấm dứt hợp đồng lao động.</p>
+   <p><b>Điều 4.</b> Điều khoản thi hành</p><p>Quyết định này có hiệu lực kể từ ngày ký.</p>
+   <p>Các phòng/ban: Hành chính - Nhân sự, Kế toán, Bộ phận IT và Ông/Bà ${nm} chịu trách nhiệm thi hành Quyết định này./.</p>
+   <table class="sig"><tr><td class="l"><b><i>Nơi nhận:</i></b><br>- Như Điều 4;<br>- Lưu: VT, HCNS.</td><td class="r"><b>${esc(String(S.directorTitle||'Giám đốc').toUpperCase())}</b><br><i>(Ký tên, đóng dấu)</i><div class="gap"></div><b>${esc(S.directorName||'')}</b></td></tr></table></body></html>`}
+async function attachDecScan(id,file){
+  try{if(!Sync.driver)throw new Error('Cần kết nối Google Drive (Cài đặt) để lưu bản ký');await GD.ensure();toast('Đang tải lên Drive…');
+    const d=DB.decisions.find(x=>x.id==id);const blob=await compressImage(file),mime=blob.type||file.type||'application/octet-stream',ext=mime==='application/pdf'?'pdf':mime==='image/png'?'png':'jpg';
+    const name=`QD-${String(d.no).replace(/\W/g,'')}_${(d.date||today()).replace(/-/g,'')}.${ext}`,fid=await GD.upload(name,blob,null,mime);
+    d.scan={name,fileId:fid,mime};d.approvedDate=d.approvedDate||today();d.approver=DB.settings.directorName;log('Duyệt & đính kèm bản ký quyết định','QuyetDinh',decNoText(d),name);save();render();toast('Đã đính kèm bản ký — quyết định chuyển sang “Đã duyệt”')}catch(e){toast(e.message||'Không tải lên được')}}
+async function viewDecScan(id){const d=DB.decisions.find(x=>x.id==id);if(!d||!d.scan)return;if(!d.scan.fileId){toast('Bản ký này chưa được tải lên Drive');return}
+  try{toast('Đang tải bản ký…');const blob=await GD.getBlob(d.scan.fileId),url=URL.createObjectURL(blob),img=/^image\//.test(d.scan.mime||blob.type);
+    modal(`Bản ký ${esc(decNoText(d))}`,img?`<img src="${url}" alt="Bản ký" style="max-width:100%;border-radius:8px">`:`<iframe src="${url}" style="width:100%;height:70vh;border:0"></iframe>`,{lg:1,nofocus:1,footer:`<a class="btn" href="${url}" download="${esc(d.scan.name)}">Tải về</a><button class="btn primary" data-act="close">Đóng</button>`})}catch(e){toast(e.message||'Không tải được bản ký')}}
+
 function handoverHTML(batch){
   const recs=DB.allocs.filter(r=>String(r.batch||'x'+r.id)===String(batch));if(!recs.length)return '';const r0=recs[0],t=r0.type,S=DB.settings;
   const title={ 'Bàn Giao':'BIÊN BẢN BÀN GIAO THIẾT BỊ CNTT','Thu Hồi':'BIÊN BẢN THU HỒI THIẾT BỊ CNTT','Điều Chuyển':'BIÊN BẢN ĐIỀU CHUYỂN THIẾT BỊ CNTT'}[t]||'BIÊN BẢN';
@@ -794,7 +870,7 @@ function vSettings(){
    ${location.protocol==='file:'?`<div class="banner">${icon('alert',20)}<div>Bạn đang mở app từ tệp trên máy (file://). Đăng nhập Google cần địa chỉ https — hãy đưa app lên GitHub Pages theo hướng dẫn.</div></div>`:''}
    <details class="more" style="margin-top:8px"><summary>Chẩn đoán đồng bộ</summary><dl class="kv" style="margin-top:8px"><dt>Địa chỉ app</dt><dd class="mono sm">${esc(location.origin)}</dd><dt>Trạng thái</dt><dd>${esc(Sync.state)} ${esc(Sync.msg)}</dd><dt>Phiên bản dữ liệu</dt><dd>máy này ${DB.rev} · đã lên Drive ${CFG.syncRev}</dd><dt>Tệp trên Drive</dt><dd class="mono sm">${esc(CFG.gFileId||'chưa có')}</dd><dt>Lần đồng bộ cuối</dt><dd>${CFG.lastAt?new Date(CFG.lastAt).toLocaleString('vi-VN'):'—'}</dd></dl>
    <form data-submit="cfg" class="frm" style="margin-top:10px">${F.t('Google Client ID','gClientId',CFG.gClientId,{cls:'full'})}${F.t('Địa chỉ dịch vụ gửi mã (Apps Script)','otp',otpUrl(),{cls:'full'})}<div class="full"><button class="btn" type="submit">Lưu cấu hình kết nối</button></div></form></details></div>
-  <div class="card"><h2>Thông tin chung</h2><form data-submit="settings"><div class="frm">${F.t('Tên công ty (in trên biên bản)','company',S.company)}${F.t('Người phụ trách IT (ghi trong nhật ký)','itName',S.itName)}${F.t('Địa chỉ (in trên biên bản)','address',S.address)}${F.t('Tiền tố mã tài sản mới','prefix',S.prefix)}${F.s('Kiểu mã tài sản','codeMode',S.codeMode||'seq',[['seq','Tuần tự — JGS-0001'],['type','Theo loại — JGS-LT-0001']])}${F.n('Số chữ số của số thứ tự','codePad',S.codePad||4)}${F.n('Cảnh báo bảo hành trước (ngày)','warnDays',S.warnDays)}<div class="full sm muted">Mã kế tiếp theo cài đặt đã lưu (ví dụ Laptop): <b class="mono">${esc(makeCodeGen(DB.assets,S)('Laptop'))}</b>. Đổi quy tắc không làm đổi mã đã có.${codeIssues(DB)?` <b style="color:var(--bad)">${codeIssues(DB)} thiết bị chưa có mã / trùng mã</b> <button type="button" class="btn sm primary" data-act="fixCodes">Cấp mã tự động</button>`:''}</div></div><div style="margin-top:10px"><button class="btn primary" type="submit">Lưu</button></div></form></div>
+  <div class="card"><h2>Thông tin chung</h2><form data-submit="settings"><div class="frm">${F.t('Tên công ty (in trên biên bản)','company',S.company)}${F.t('Người phụ trách IT (ghi trong nhật ký)','itName',S.itName)}${F.t('Địa chỉ (in trên biên bản)','address',S.address)}${F.t('Địa danh (in trên quyết định)','place',S.place,{ph:'VD: TP. Hồ Chí Minh'})}${F.t('Ký hiệu số quyết định','docShort',S.docShort,{ph:'VD: JGS → 01/QĐ-JGS'})}${F.t('Người ký duyệt quyết định','directorName',S.directorName)}${F.t('Chức danh người ký','directorTitle',S.directorTitle)}${F.t('Tiền tố mã tài sản mới','prefix',S.prefix)}${F.s('Kiểu mã tài sản','codeMode',S.codeMode||'seq',[['seq','Tuần tự — JGS-0001'],['type','Theo loại — JGS-LT-0001']])}${F.n('Số chữ số của số thứ tự','codePad',S.codePad||4)}${F.n('Cảnh báo bảo hành trước (ngày)','warnDays',S.warnDays)}<div class="full sm muted">Mã kế tiếp theo cài đặt đã lưu (ví dụ Laptop): <b class="mono">${esc(makeCodeGen(DB.assets,S)('Laptop'))}</b>. Đổi quy tắc không làm đổi mã đã có.${codeIssues(DB)?` <b style="color:var(--bad)">${codeIssues(DB)} thiết bị chưa có mã / trùng mã</b> <button type="button" class="btn sm primary" data-act="fixCodes">Cấp mã tự động</button>`:''}</div></div><div style="margin-top:10px"><button class="btn primary" type="submit">Lưu</button></div></form></div>
   <div class="card"><h2>Dữ liệu & sao lưu</h2><div class="toolbar">
    <button class="btn" data-act="exportJson">${icon('dl',14)}Xuất toàn bộ (JSON)</button><button class="btn" data-act="exportAll">${icon('dl',14)}Xuất thiết bị (CSV)</button>${conn?`<button class="btn" data-act="driveBackup">${icon('cloud',14)}Sao lưu thêm bản lên Drive</button>`:''}
    <button class="btn" data-act="importJson">${icon('ul',14)}Nhập từ JSON</button><button class="btn" data-act="importLegacy">${icon('ul',14)}Nhập từ app cũ (.zip / .db)</button><button class="btn" data-act="importSheet">${icon('ul',14)}Nhập thiết bị từ Excel / CSV</button><button class="btn" data-act="sheetTemplate">${icon('dl',14)}Tải tệp mẫu</button></div>
@@ -880,7 +956,7 @@ const ACT={
    log('Xóa thiết bị','ThietBi',a.id,[a.type,a.model,a.serial].join(' / '));save();render();toast('Đã xóa')},true)},
  retire(d){const a=asset(d.v);if(a.user){toast('Hãy thu hồi thiết bị về kho trước khi thanh lý');return}ask('Thanh lý thiết bị',`Đánh dấu <b>${esc(a.id)}</b> đã thanh lý/loại bỏ? Thiết bị sẽ không còn trong kho và kiểm kê.`,'Thanh lý',()=>{a.retired=today();log('Thanh lý thiết bị','ThietBi',a.id,'');save();render();toast('Đã thanh lý')})},
  unretire(d){const a=asset(d.v);a.retired='';log('Khôi phục thiết bị','ThietBi',a.id,'');save();closeModal();render();toast('Đã khôi phục')},
- allocForm(d){allocForm(d.v,d.a)},allocEdit(d){allocEditForm(d.v)},printbb(d){printHTML(handoverHTML(d.v))},
+ allocForm(d){allocForm(d.v,d.a)},decForm(d){decForm(d.v)},decPrint(d){printHTML(decisionHTML(d.v))},decScanAttach(d){pickFile('image/*,application/pdf',f=>attachDecScan(d.v,f))},decScanView(d){viewDecScan(d.v)},decDel(d){const x=DB.decisions.find(y=>y.id==d.v);if(!x)return;ask('Xóa quyết định',`Xóa <b>${esc(decNoText(x))}</b> của <b>${esc(x.emp)}</b>?${x.scan?' Quyết định này đã có bản ký (tệp trên Drive không bị xóa).':''}`,'Xóa',()=>{DB.decisions=DB.decisions.filter(y=>y.id!=x.id);log('Xóa quyết định mang máy về nhà','QuyetDinh',decNoText(x),x.emp);save();render();toast('Đã xóa')},true)},allocEdit(d){allocEditForm(d.v)},printbb(d){printHTML(handoverHTML(d.v))},
  scanAttach(d){pickFile('image/*,application/pdf',f=>attachScan(d.v,f))},scanView(d){viewScan(d.v)},
  stockForm(d){const s=DB.stock[d.v]||{};modal('Thông tin kho — '+esc(d.v),`<input type="hidden" name="id" value="${esc(d.v)}"><div class="frm">${F.t('Nguồn nhập','source',s.source)}${F.d('Ngày nhập kho','inDate',s.inDate)}${F.t('Vị trí kho','location',s.location)}${F.a('Ghi chú','note',s.note)}</div>`,{form:'stock',footer:FORM_BTNS()})},
  repairForm(d){const r=d.v?DB.repairs.find(x=>x.id==d.v):{assetId:d.a||'',reportDate:today(),issue:'',vendor:'',owner:DB.settings.itName||'',note:'',cost:0,doneDate:'',result:''};
@@ -897,7 +973,7 @@ const ACT={
  licRegrant(d){const l=DB.licAssign.find(x=>x.id==d.v);l.status='Đang sử dụng';l.dateRevoked='';l.revokedBy='';l.dateGiven=today();licLog(l,'Cấp lại','Cấp lại bản quyền');log('Cấp lại bản quyền','CapPhatBanQuyen',l.account,l.pkg);save();render();toast('Đã cấp lại')},
  licDel(d){const l=DB.licAssign.find(x=>x.id==d.v);ask('Xóa tài khoản bản quyền',`Xóa <b>${esc(l.account)}</b> khỏi danh sách? (Nếu chỉ không dùng nữa, nên chọn Thu hồi để giữ lịch sử.)`,'Xóa',()=>{DB.licAssign=DB.licAssign.filter(x=>x.id!==l.id);log('Xóa bản quyền','CapPhatBanQuyen',l.account,l.pkg);save();render()},true)},
  licCsv(){const f=fl(),st=f.status===undefined?'Đang sử dụng':f.status;csvOut('BanQuyen_'+today()+'.csv',['Tài khoản','Email','Nhân viên','Phòng ban','Gói','Giá/tháng','Giá/năm','Trạng thái','Ngày cấp','Ngày thu hồi'],DB.licAssign.filter(l=>(!st||l.status===st)&&(!f.pkg||l.pkg===f.pkg)&&(!f.dept||l.dept===f.dept)).map(l=>[l.account,l.email,l.person,l.dept,l.pkg,l.priceMonth,l.priceYear,l.status,l.dateGiven,l.dateRevoked]))},
- empForm(d){const e=d.v?DB.employees.find(x=>x.id==d.v):{name:'',dept:'',status:'Đang làm việc',joinDate:'',leaveDate:''};modal(d.v?'Sửa nhân viên':'Thêm nhân viên',`<input type="hidden" name="id" value="${esc(d.v||'')}">${dl('dlDept',DB.depts)}<div class="frm">${F.t('Họ tên','name',e.name,{req:1,cls:'full'})}${F.t('Phòng ban','dept',e.dept,{list:'dlDept'})}${F.s('Trạng thái','status',e.status,['Đang làm việc','Nghỉ việc'])}${F.d('Ngày vào làm','joinDate',e.joinDate)}${F.d('Ngày nghỉ việc','leaveDate',e.leaveDate)}</div>`,{form:'emp',footer:FORM_BTNS()})},
+ empForm(d){const e=d.v?DB.employees.find(x=>x.id==d.v):{name:'',dept:'',title:'',status:'Đang làm việc',joinDate:'',leaveDate:''};modal(d.v?'Sửa nhân viên':'Thêm nhân viên',`<input type="hidden" name="id" value="${esc(d.v||'')}">${dl('dlDept',DB.depts)}<div class="frm">${F.t('Họ tên','name',e.name,{req:1,cls:'full'})}${F.t('Phòng ban','dept',e.dept,{list:'dlDept'})}${F.t('Chức vụ','title',e.title||'')}${F.s('Trạng thái','status',e.status,['Đang làm việc','Nghỉ việc'])}${F.d('Ngày vào làm','joinDate',e.joinDate)}${F.d('Ngày nghỉ việc','leaveDate',e.leaveDate)}</div>`,{form:'emp',footer:FORM_BTNS()})},
  empDel(d){const e=DB.employees.find(x=>x.id==d.v),h=holdings(e.name);if(h.assets.length||h.lics.length){toast(`${e.name} đang giữ ${h.assets.length} thiết bị, ${h.lics.length} bản quyền — hãy thu hồi trước`);return}ask('Xóa nhân viên',`Xóa <b>${esc(e.name)}</b>? Lịch sử cấp phát cũ vẫn giữ nguyên tên.`,'Xóa',()=>{DB.employees=DB.employees.filter(x=>x.id!==e.id);log('Xóa nhân viên','NhanVien',e.name,e.dept);save();render()},true)},
  deptForm(d){modal(d.v?'Đổi tên phòng ban':'Thêm phòng ban',`<input type="hidden" name="orig" value="${esc(d.v||'')}"><div class="frm">${F.t('Tên phòng ban','name',d.v||'',{req:1,cls:'full'})}</div>`,{form:'dept',footer:FORM_BTNS()})},
  deptDel(d){if(DB.employees.some(e=>e.dept===d.v&&e.status!=='Nghỉ việc')){toast('Phòng ban còn nhân viên đang làm, hãy chuyển họ trước');return}ask('Xóa phòng ban',`Xóa <b>${esc(d.v)}</b>?`,'Xóa',()=>{DB.depts=DB.depts.filter(x=>x!==d.v);save();render()},true)},
@@ -953,6 +1029,16 @@ const SUB={
    if(d.type!=='Thu Hồi'){d.person=(d.person||'').trim();if(!d.person){toast('Hãy nhập người nhận');return}const e=empByName(d.person);if(e&&!d.dept)d.dept=e.dept}
    const r=doAlloc(d,ids);closeModal();render();const b=bbOf(r.batch);
    modal('Đã lập biên bản',`<p style="margin:0">Đã tạo <b>${bbNo(b)}</b> — ${esc(d.type)} ${r.n} thiết bị${d.type!=='Thu Hồi'?' cho <b>'+esc(d.person)+'</b>':''}. In biên bản để hai bên ký, sau đó chụp ảnh bản đã ký và đính kèm vào biên bản.</p>`,{footer:`<button class="btn" data-act="close">Đóng</button><button class="btn primary" data-act="printbb" data-v="${r.batch}">${icon('print',14)}In biên bản</button>`,nofocus:1})},
+ decision(d,f){const emp=(d.emp||'').trim();if(!emp){toast('Hãy chọn nhân viên');return}
+   const ids=$$('input[name=a]:checked',f).map(x=>x.value);if(!ids.length){toast('Hãy chọn ít nhất một thiết bị');return}
+   const open=!!d.openEnded;if(!d.from){toast('Hãy nhập ngày bắt đầu');return}if(!open&&(!d.to||d.to<d.from)){toast('Ngày kết thúc phải sau ngày bắt đầu (hoặc tick “đến khi có thông báo thu hồi”)');return}
+   const e=empByName(emp);const o={emp,title:(d.title||'').trim(),dept:(d.dept||'').trim(),assetIds:ids,accNote:(d.accNote||'').trim(),cond:(d.cond||'').trim()||'Hoạt động bình thường',from:d.from,to:open?'':d.to,openEnded:open,no:(d.no||'').trim()||nextDecNo(d.date),date:d.date,proposer:d.proposer,items:decItems(ids,(d.accNote||'').trim())};
+   if(DB.decisions.some(x=>x.no===o.no&&String(x.date).slice(0,4)===String(o.date).slice(0,4)&&x.id!=d.id)){toast('Số quyết định này đã được dùng trong năm — hãy đổi số');return}
+   if(e){if(o.title&&!e.title)e.title=o.title;if(o.dept&&!e.dept)e.dept=o.dept}
+   let rec;if(d.id){rec=DB.decisions.find(x=>x.id==d.id);Object.assign(rec,o);log('Sửa quyết định mang máy về nhà','QuyetDinh',decNoText(rec),emp)}
+   else{rec=Object.assign({id:nextId('decision'),scan:null,approvedDate:'',approver:''},o);DB.decisions.push(rec);log('Lập quyết định mang máy về nhà','QuyetDinh',decNoText(rec),`${emp} · ${rec.items.map(i=>i.id).join(', ')}`)}
+   save();closeModal();render();
+   if(!d.id)modal('Đã lập quyết định',`<p style="margin:0">Đã tạo <b>${esc(decNoText(rec))}</b> cho <b>${esc(emp)}</b> (${rec.items.length} thiết bị). In quyết định để trình <b>${esc(DB.settings.directorName)}</b> (${esc(DB.settings.directorTitle)}) ký duyệt, sau đó chụp ảnh bản đã ký và đính kèm vào quyết định.</p>`,{footer:`<button class="btn" data-act="close">Đóng</button><button class="btn primary" data-act="decPrint" data-v="${rec.id}">${icon('print',14)}In quyết định</button>`,nofocus:1});else toast('Đã lưu')},
  allocEdit(d,f){const b=bbOf(d.batch);if(!b){toast('Không tìm thấy biên bản');return}
    const bad=bbConflict(b);if(bad){toast(bad);return}
    const ids=$$('input[name=a]:checked',f).map(x=>x.value);if(!ids.length){toast('Hãy chọn ít nhất một thiết bị');return}
@@ -980,7 +1066,7 @@ const SUB={
    save();closeModal();render();toast('Đã lưu')},
  licRevoke(d){const l=DB.licAssign.find(x=>x.id==d.id);l.status='Đã thu hồi';l.dateRevoked=d.date;l.revokedBy=d.by;licLog(l,'Thu hồi',d.note||'Thu hồi quyền sử dụng');log('Thu hồi bản quyền','CapPhatBanQuyen',l.account,`${l.pkg} ← ${l.person||l.account}`);save();closeModal();render();toast('Đã thu hồi')},
  emp(d){const name=d.name.trim();if(!name)return;if(DB.employees.some(e=>e.name===name&&e.id!=d.id)){toast('Đã có nhân viên trùng tên này');return}
-   const o={name,dept:d.dept.trim(),status:d.status,joinDate:d.joinDate,leaveDate:d.status==='Nghỉ việc'?(d.leaveDate||today()):d.leaveDate};
+   const o={name,dept:d.dept.trim(),title:(d.title||'').trim(),status:d.status,joinDate:d.joinDate,leaveDate:d.status==='Nghỉ việc'?(d.leaveDate||today()):d.leaveDate};
    if(o.dept&&!DB.depts.includes(o.dept))DB.depts.push(o.dept);
    if(d.id){const e=DB.employees.find(x=>x.id==d.id);if(e.name!==name)renameRef('person',e.name,name);Object.assign(e,o);log('Sửa nhân viên','NhanVien',name,o.dept+' / '+o.status)}
    else{DB.employees.push(Object.assign({id:nextId('emp')},o));log('Thêm nhân viên','NhanVien',name,o.dept)}
@@ -988,7 +1074,7 @@ const SUB={
  dept(d){const n=d.name.trim();if(!n)return;if(DB.depts.includes(n)&&n!==d.orig){toast('Phòng ban đã tồn tại');return}if(d.orig){renameRef('dept',d.orig,n);DB.depts=DB.depts.map(x=>x===d.orig?n:x)}else DB.depts.push(n);save();closeModal();render()},
  inv(d){const items={};DB.assets.filter(a=>!a.retired).forEach(a=>{items[a.id]={checked:false,actual:'',note:'',holder:a.user||''}});const i={id:nextId('inv'),name:d.name.trim(),date:d.date,by:d.by,note:d.note,status:'Đang kiểm kê',items};DB.inventories.push(i);log('Tạo đợt kiểm kê','KiemKe',i.id,i.name);save();closeModal();UI.view='inv';UI.sel={inv:i.id};UI.f.inv={};render()},
  invNote(d){const i=DB.inventories.find(x=>x.id===UI.sel.inv),it=i.items[d.id];it.actual=d.actual;it.note=d.note;if(d.actual==='Không tìm thấy')it.checked=false;save();closeModal();render(true)},
- settings(d){Object.assign(DB.settings,{company:d.company,itName:d.itName,address:d.address,prefix:d.prefix,codeMode:d.codeMode==='type'?'type':'seq',codePad:Math.min(8,Math.max(2,+d.codePad||4)),warnDays:+d.warnDays||60});save();toast('Đã lưu');render(true)},
+ settings(d){Object.assign(DB.settings,{company:d.company,itName:d.itName,address:d.address,place:d.place||'',docShort:(d.docShort||'').trim(),directorName:(d.directorName||'').trim()||'Nguyễn Thị Bé',directorTitle:(d.directorTitle||'').trim()||'Giám đốc',prefix:d.prefix,codeMode:d.codeMode==='type'?'type':'seq',codePad:Math.min(8,Math.max(2,+d.codePad||4)),warnDays:+d.warnDays||60});save();toast('Đã lưu');render(true)},
  cfg(d){CFG.gClientId=d.gClientId.trim();saveCfg();const u=(d.otp||'').trim();try{if(u)localStorage.setItem(OTP_KEY,u);else localStorage.removeItem(OTP_KEY)}catch(e){}toast('Đã lưu cấu hình kết nối')}
 };
 const INP={
@@ -996,6 +1082,9 @@ const INP={
  pickq(t){const q=fold(t.value);$$('#pickbox label').forEach(l=>{l.style.display=!q||l.dataset.t.includes(q)?'':'none'})},
  typeCode(t){const c=t.form&&t.form.elements.id;if(c&&!c.dataset.manual)c.value=genCode(t.value.trim())},
  codeEdit(t){t.dataset.manual='1'},
+ decEmp(t){const f=t.form,name=t.value.trim(),e=empByName(name),box=$('#decpick');if(!box)return;
+   if(e){if(f.elements.title&&!f.elements.title.value)f.elements.title.value=e.title||'';if(f.elements.dept)f.elements.dept.value=e.dept||''}
+   box.innerHTML=decPick(e?name:'',e?decDefaultPick(name):[])},
  empPick(t){const e=empByName(t.value.trim());if(e){const f=t.form,dd=f.elements.dept;if(dd&&!dd.value)dd.value=e.dept}}
 };
 const CHG={
