@@ -303,7 +303,7 @@ const idb={db:null,open(){return this.db||(this.db=new Promise((res,rej)=>{const
 /* ===== Cấu hình thiết bị & dữ liệu ===== */
 const DEFAULT_G_CLIENT_ID='160509043267-rq97u0revcveeglq15mo1tappf7aikih.apps.googleusercontent.com'; // Google Client ID (dùng chung với app Tiền Trọ được; đổi nếu bạn tạo ID riêng)
 const DEFAULT_OTP_URL=''; // Dán địa chỉ Apps Script (…/exec) của app này vào đây để khỏi nhập ở màn hình đăng nhập
-const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.3';
+const AUTH_EMAIL='hoangvucntt@gmail.com',APP_NAME='Quản lý thiết bị CNTT',VERSION='1.3.1';
 const DRIVE_FOLDER='Quản lý thiết bị CNTT',DRIVE_FILE='ITAsset_data.json';
 let CFG={gClientId:'',gFileId:null,gFolderId:null,syncPid:null,syncRev:0,view:'dash',driver:null,lastAt:null};
 try{Object.assign(CFG,JSON.parse(localStorage.getItem('itam.cfg')||'{}'))}catch(e){}
@@ -685,7 +685,7 @@ function allocEditForm(key){
    ${F.a('Ghi chú','note',r0.note||'')}</div>`,{form:'allocEdit',lg:1,footer:FORM_BTNS('Lưu thay đổi')})}
 
 /* ===== Quyết định sử dụng máy tính công ty tại nhà ===== */
-const DEC_PROPOSERS=['Trưởng bộ phận IT','Trưởng phòng Hành chính - Nhân sự'];
+const DEC_PROPOSERS=['Trưởng bộ phận IT'];
 const decShort=()=>{const S=DB.settings;return (S.docShort||'').trim()||String(S.prefix||'').replace(/[^A-Za-z0-9]/g,'')||'CTY'};
 const decNoText=d=>`${d.no}/QĐ-${decShort()}`;
 const decStatus=d=>!d.scan?'Chờ duyệt':(!d.openEnded&&d.to&&d.to<today()?'Hết hiệu lực':'Đã duyệt');
@@ -724,7 +724,6 @@ function decForm(id){
    ${F.d('Áp dụng từ ngày','from',d?d.from:today(),{req:1})}${F.d('Đến ngày','to',d?d.to:'')}
    <label class="f full" style="flex-direction:row;gap:8px;align-items:center"><input type="checkbox" name="openEnded" ${!d||d.openEnded?'checked':''}> <span>Cho đến khi có thông báo thu hồi (bỏ tick và nhập “Đến ngày” nếu có thời hạn)</span></label>
    ${F.t('Số quyết định (số thứ tự)','no',d?d.no:nextDecNo(today()))}${F.d('Ngày ký quyết định','date',d?d.date:today(),{req:1})}
-   ${F.s('Xét đề nghị của','proposer',d?d.proposer:DEC_PROPOSERS[0],DEC_PROPOSERS,{cls:'full'})}
    <div class="full sm muted">Người ký duyệt: <b>${esc(DB.settings.directorName)}</b> — ${esc(DB.settings.directorTitle)}. Lập xong → In → trình ký → chụp ảnh bản đã ký và đính kèm để chuyển sang “Đã duyệt”.</div></div>`,{form:'decision',lg:1,footer:FORM_BTNS(d?'Lưu thay đổi':'Tạo quyết định')})}
 function decisionHTML(id){
   const d=DB.decisions.find(x=>x.id==id);if(!d)return '';const S=DB.settings,co=esc(S.company||'CÔNG TY'),dt=pd(d.date)||new Date();
@@ -737,7 +736,7 @@ function decisionHTML(id){
    <table class="hd"><tr><td class="l"><b>${co.toUpperCase()}</b><br><span class="u"></span><br>Số: ${esc(decNoText(d))}</td><td class="r"><b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br><b>Độc lập - Tự do - Hạnh phúc</b><br><span class="u"></span><br><i>${esc(S.place||'……………')}, ngày ${dt.getDate()} tháng ${dt.getMonth()+1} năm ${dt.getFullYear()}</i></td></tr></table>
    <h1>QUYẾT ĐỊNH</h1><div class="st">Về việc cho phép sử dụng máy tính của Công ty tại nhà</div>
    <p class="c"><b>${esc(String(S.directorTitle||'Giám đốc').toUpperCase())} ${co.toUpperCase()}</b></p>
-   <p><i>Căn cứ Bộ luật Lao động năm 2019;</i></p><p><i>Căn cứ Điều lệ hoạt động của ${co};</i></p><p><i>Căn cứ Nội quy lao động và Quy chế quản lý tài sản của ${co};</i></p><p><i>Xét đề nghị của ${esc(d.proposer||DEC_PROPOSERS[0])} và nhu cầu công việc thực tế.</i></p>
+   <p><i>Căn cứ Bộ luật Lao động năm 2019;</i></p><p><i>Căn cứ Điều lệ hoạt động của ${co};</i></p><p><i>Căn cứ Nội quy lao động và Quy chế quản lý tài sản của ${co};</i></p><p><i>Xét đề nghị của ${esc(DEC_PROPOSERS[0])} và nhu cầu công việc thực tế.</i></p>
    <p class="c"><b>QUYẾT ĐỊNH:</b></p>
    <p><b>Điều 1.</b> Cho phép Ông/Bà có thông tin dưới đây được mang thiết bị máy tính thuộc sở hữu của Công ty về sử dụng tại nhà để phục vụ mục đích công việc:</p>
    <ul><li>Họ và tên: <b>${nm}</b></li><li>Chức vụ: ${esc(d.title||'………………')} – Bộ phận: ${esc(d.dept||'………………')}</li><li>Thời gian áp dụng: ${time}.</li></ul>
@@ -1032,7 +1031,7 @@ const SUB={
  decision(d,f){const emp=(d.emp||'').trim();if(!emp){toast('Hãy chọn nhân viên');return}
    const ids=$$('input[name=a]:checked',f).map(x=>x.value);if(!ids.length){toast('Hãy chọn ít nhất một thiết bị');return}
    const open=!!d.openEnded;if(!d.from){toast('Hãy nhập ngày bắt đầu');return}if(!open&&(!d.to||d.to<d.from)){toast('Ngày kết thúc phải sau ngày bắt đầu (hoặc tick “đến khi có thông báo thu hồi”)');return}
-   const e=empByName(emp);const o={emp,title:(d.title||'').trim(),dept:(d.dept||'').trim(),assetIds:ids,accNote:(d.accNote||'').trim(),cond:(d.cond||'').trim()||'Hoạt động bình thường',from:d.from,to:open?'':d.to,openEnded:open,no:(d.no||'').trim()||nextDecNo(d.date),date:d.date,proposer:d.proposer,items:decItems(ids,(d.accNote||'').trim())};
+   const e=empByName(emp);const o={emp,title:(d.title||'').trim(),dept:(d.dept||'').trim(),assetIds:ids,accNote:(d.accNote||'').trim(),cond:(d.cond||'').trim()||'Hoạt động bình thường',from:d.from,to:open?'':d.to,openEnded:open,no:(d.no||'').trim()||nextDecNo(d.date),date:d.date,proposer:DEC_PROPOSERS[0],items:decItems(ids,(d.accNote||'').trim())};
    if(DB.decisions.some(x=>x.no===o.no&&String(x.date).slice(0,4)===String(o.date).slice(0,4)&&x.id!=d.id)){toast('Số quyết định này đã được dùng trong năm — hãy đổi số');return}
    if(e){if(o.title&&!e.title)e.title=o.title;if(o.dept&&!e.dept)e.dept=o.dept}
    let rec;if(d.id){rec=DB.decisions.find(x=>x.id==d.id);Object.assign(rec,o);log('Sửa quyết định mang máy về nhà','QuyetDinh',decNoText(rec),emp)}
